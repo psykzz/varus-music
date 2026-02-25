@@ -1,0 +1,66 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Track {
+  id          String   @id @default(cuid())
+  title       String
+  artist      String
+  album       String?
+  filename    String   @unique
+  duration    Int?     // duration in seconds
+  mimeType    String   @default("audio/mpeg")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  ratings     Rating[]
+  cycles      PlaylistCycleTrack[]
+}
+
+model Rating {
+  id        String   @id @default(cuid())
+  trackId   String
+  value     Int      // 1 = like, -1 = dislike, 0 = neutral
+  createdAt DateTime @default(now())
+
+  track     Track    @relation(fields: [trackId], references: [id], onDelete: Cascade)
+}
+
+model CadenceSetting {
+  id        String   @id @default(cuid())
+  interval  String   @default("weekly") // daily | weekly | monthly
+  lastRun   DateTime?
+  nextRun   DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model PlaylistCycle {
+  id        String   @id @default(cuid())
+  startedAt DateTime @default(now())
+  expiresAt DateTime
+  active    Boolean  @default(true)
+
+  tracks    PlaylistCycleTrack[]
+}
+
+model PlaylistCycleTrack {
+  id        String   @id @default(cuid())
+  cycleId   String
+  trackId   String
+  position  Int
+
+  cycle     PlaylistCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+  track     Track         @relation(fields: [trackId], references: [id], onDelete: Cascade)
+
+  @@unique([cycleId, trackId])
+  @@unique([cycleId, position])
+}
