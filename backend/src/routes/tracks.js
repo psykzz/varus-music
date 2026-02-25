@@ -33,7 +33,9 @@ export async function tracksRoutes(fastify) {
   })
 
   // Upload a track
-  fastify.post('/upload', async (request, reply) => {
+  fastify.post('/upload', {
+    config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
+  }, async (request, reply) => {
     await fs.mkdir(MUSIC_STORAGE_PATH, { recursive: true })
     const data = await request.file()
     if (!data) return reply.code(400).send({ error: 'No file uploaded' })
@@ -43,13 +45,13 @@ export async function tracksRoutes(fastify) {
       return reply.code(400).send({ error: 'Invalid file type. Only MP3/WAV allowed.' })
     }
 
-    const filename = `${Date.now()}-${data.filename.replace(/[^a-zA-Z0-9._-]/g, '_')}`
+    const filename = `${Date.now()}-${Math.random().toString(36).substring(7)}-${data.filename.replace(/[^a-zA-Z0-9._-]/g, '_')}`
     const filepath = path.join(MUSIC_STORAGE_PATH, filename)
     await pipeline(data.file, (await import('fs')).createWriteStream(filepath))
 
-    const title = request.body?.title || data.filename.replace(/\.[^/.]+$/, '')
-    const artist = request.body?.artist || 'Unknown Artist'
-    const album = request.body?.album || null
+    const title = data.fields?.title?.value || data.filename.replace(/\.[^/.]+$/, '')
+    const artist = data.fields?.artist?.value || 'Unknown Artist'
+    const album = data.fields?.album?.value || null
 
     const track = await prisma.track.create({
       data: { title, artist, album, filename, mimeType: data.mimetype },
@@ -58,7 +60,9 @@ export async function tracksRoutes(fastify) {
   })
 
   // Delete a track
-  fastify.delete('/:id', async (request, reply) => {
+  fastify.delete('/:id', {
+    config: { rateLimit: { max: 30, timeWindow: '1 minute' } },
+  }, async (request, reply) => {
     const track = await prisma.track.findUnique({ where: { id: request.params.id } })
     if (!track) return reply.code(404).send({ error: 'Track not found' })
 

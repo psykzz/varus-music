@@ -16,7 +16,7 @@ export default function Player({ track, onNext, onPrev, onRatingUpdate }) {
       setCurrentTime(0)
       setDuration(0)
       if (isPlayingRef.current) {
-        audioRef.current.play().catch(() => { setIsPlaying(false); isPlayingRef.current = false })
+        audioRef.current.play().catch((err) => { console.error('Autoplay failed:', err); setIsPlaying(false); isPlayingRef.current = false })
       }
     }
   }, [track?.id])
@@ -48,7 +48,7 @@ export default function Player({ track, onNext, onPrev, onRatingUpdate }) {
       setIsPlaying(false)
       isPlayingRef.current = false
     } else {
-      audio.play().then(() => { setIsPlaying(true); isPlayingRef.current = true }).catch(() => { setIsPlaying(false); isPlayingRef.current = false })
+      audio.play().then(() => { setIsPlaying(true); isPlayingRef.current = true }).catch((err) => { console.error('Play failed:', err); setIsPlaying(false); isPlayingRef.current = false })
     }
   }
 

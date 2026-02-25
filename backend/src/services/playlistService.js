@@ -36,8 +36,8 @@ export async function generatePlaylist() {
     return b.score - a.score
   })
 
-  // Filter out heavily disliked tracks (score <= -3)
-  const eligible = scored.filter((t) => t.score > -3)
+  // Filter out heavily disliked tracks (score <= -3), but always include unrated tracks
+  const eligible = scored.filter((t) => t.score > -3 || t.ratingCount === 0)
 
   const selected = eligible.slice(0, DEFAULT_PLAYLIST_SIZE)
 

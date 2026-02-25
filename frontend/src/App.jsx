@@ -39,7 +39,7 @@ export default function App() {
         await cachePlaylist(data)
       }
     } catch (err) {
-      setError('Failed to load playlist. ' + (isOffline ? 'You are offline.' : err.message))
+      setError('Failed to load playlist. ' + (isOffline ? 'You are offline.' : (err?.message || 'Unknown error')))
     } finally {
       setLoading(false)
     }

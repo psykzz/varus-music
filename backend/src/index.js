@@ -2,6 +2,7 @@ import Fastify from 'fastify'
 import cors from '@fastify/cors'
 import multipart from '@fastify/multipart'
 import staticFiles from '@fastify/static'
+import rateLimit from '@fastify/rate-limit'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import { tracksRoutes } from './routes/tracks.js'
@@ -19,6 +20,7 @@ const MUSIC_STORAGE_PATH = process.env.MUSIC_STORAGE_PATH || path.join(__dirname
 
 await fastify.register(cors, { origin: true })
 await fastify.register(multipart, { limits: { fileSize: 100 * 1024 * 1024 } })
+await fastify.register(rateLimit, { max: 100, timeWindow: '1 minute' })
 await fastify.register(staticFiles, {
   root: MUSIC_STORAGE_PATH,
   prefix: '/files/',
