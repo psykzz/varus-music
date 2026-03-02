@@ -1,0 +1,24 @@
+{
+  "name": "varus-music-backend",
+  "version": "1.0.0",
+  "description": "Varus Music backend API",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:studio": "prisma studio"
+  },
+  "dependencies": {
+    "@fastify/cors": "^10.0.1",
+    "@fastify/multipart": "^9.0.3",
+    "@fastify/rate-limit": "^10.1.1",
+    "@fastify/static": "^8.0.2",
+    "@prisma/client": "^5.22.0",
+    "fastify": "^5.7.2",
+    "node-cron": "^3.0.3",
+    "prisma": "^5.22.0"
+  }
+}
