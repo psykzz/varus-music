@@ -4,6 +4,7 @@ import { pipeline } from 'stream/promises'
 import prisma from '../db.js'
 import { enrichTrack } from '../services/lastfmService.js'
 import { ingestFile } from '../services/watcherService.js'
+import { enqueueDownload } from '../services/downloadService.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const MUSIC_STORAGE_PATH = process.env.MUSIC_STORAGE_PATH || path.join(__dirname, '..', '..', 'storage', 'music')
@@ -86,6 +87,21 @@ export async function tracksRoutes(fastify) {
 
     const updated = await prisma.track.update({ where: { id: track.id }, data: enriched })
     return updated
+  })
+
+  // Restore a purged track by re-downloading it from its sourceUrl (requires auth)
+  fastify.post('/:id/restore', { preHandler: [fastify.authenticate] }, async (request, reply) => {
+    const track = await prisma.track.findUnique({ where: { id: request.params.id } })
+    if (!track) return reply.code(404).send({ error: 'Track not found' })
+    if (!track.filePurged) return reply.code(400).send({ error: 'Track file already exists' })
+    if (!track.sourceUrl) return reply.code(400).send({ error: 'No source URL available for re-download' })
+
+    const job = await enqueueDownload(track.sourceUrl, request.user.sub, {
+      title: track.title,
+      artist: track.artist,
+      trackId: track.id,
+    })
+    return reply.code(202).send({ message: 'Restore download enqueued', jobId: job.id })
   })
 
   // Delete a track (requires auth)

@@ -29,7 +29,9 @@ const running = new Set()
  * Enqueue a new download job.
  * @param {string} url
  * @param {string} userId
- * @param {{ title?: string, artist?: string }} meta
+ * @param {{ title?: string, artist?: string, trackId?: string }} meta
+ *   When `trackId` is provided the job is treated as a restore: the existing
+ *   Track row is updated with the new filename instead of creating a new row.
  */
 export async function enqueueDownload(url, userId, meta = {}) {
   const job = await prisma.downloadJob.create({
@@ -39,6 +41,7 @@ export async function enqueueDownload(url, userId, meta = {}) {
       title: meta.title || null,
       artist: meta.artist || null,
       status: 'pending',
+      trackId: meta.trackId || null,
     },
   })
   processQueue()
@@ -116,18 +119,45 @@ async function runJob(job) {
         }
 
         const fullPath = path.join(tempDir, audioFile)
-        const track = await ingestFile(fullPath, {
-          title: job.title || undefined,
-          artist: job.artist || undefined,
-        })
 
-        await prisma.downloadJob.update({
-          where: { id: job.id },
-          data: { status: 'done', title: track.title, artist: track.artist, trackId: track.id },
-        })
+        if (job.trackId) {
+          // Restore flow: re-download a purged track, update the existing record
+          const newFilename = `${Date.now()}-${Math.random().toString(36).substring(7)}-${audioFile.replace(/[^a-zA-Z0-9._-]/g, '_')}`
+          const destPath = path.join(MUSIC_STORAGE_PATH, newFilename)
+          await fs.copyFile(fullPath, destPath)
 
-        // Immediately add the downloaded track to the user's active playlist
-        await addTrackToActivePlaylist(job.userId, track.id)
+          await prisma.track.update({
+            where: { id: job.trackId },
+            data: { filename: newFilename, filePurged: false },
+          })
+
+          await prisma.downloadJob.update({
+            where: { id: job.id },
+            data: { status: 'done' },
+          })
+
+          await addTrackToActivePlaylist(job.userId, job.trackId)
+        } else {
+          // Normal flow: create a new Track row
+          const track = await ingestFile(fullPath, {
+            title: job.title || undefined,
+            artist: job.artist || undefined,
+          })
+
+          // Store the source URL so the track can be re-downloaded if purged
+          await prisma.track.update({
+            where: { id: track.id },
+            data: { sourceUrl: job.url },
+          })
+
+          await prisma.downloadJob.update({
+            where: { id: job.id },
+            data: { status: 'done', title: track.title, artist: track.artist, trackId: track.id },
+          })
+
+          // Immediately add the downloaded track to the user's active playlist
+          await addTrackToActivePlaylist(job.userId, track.id)
+        }
       } catch (err) {
         await prisma.downloadJob.update({
           where: { id: job.id },
