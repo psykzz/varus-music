@@ -317,8 +317,8 @@ export default function Player({
 
       {/* ── Mobile mini-bar (below md, collapsed) ── */}
       <div
-        className="md:hidden fixed bottom-16 left-0 right-0 z-40 bg-spotify-gray cursor-pointer touch-manipulation"
-        style={{ height: '68px' }}
+        className="md:hidden fixed left-0 right-0 z-40 bg-spotify-gray cursor-pointer touch-manipulation"
+        style={{ bottom: 'calc(64px + env(safe-area-inset-bottom, 0px))', height: '68px' }}
         onClick={() => onExpandedChange(true)}
         role="button"
         aria-label="Expand player"
@@ -482,7 +482,7 @@ export default function Player({
             </div>
 
             {/* Volume */}
-            <div className="flex items-center gap-3 pb-safe pb-4">
+            <div className="flex items-center gap-3" style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))' }}>
               <VolumeIcon />
               <input
                 type="range"

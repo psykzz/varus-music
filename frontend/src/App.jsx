@@ -267,7 +267,7 @@ export default function App() {
   return (
     <div className="flex flex-col h-screen bg-spotify-black">
       {/* Header */}
-      <header className="flex items-center justify-between px-3 md:px-6 py-3 md:py-4 bg-spotify-darkgray border-b border-spotify-gray gap-2 md:gap-4 pt-safe">
+      <header className="flex items-center justify-between px-3 md:px-6 py-3 md:py-4 bg-spotify-darkgray border-b border-spotify-gray gap-2 md:gap-4" style={{ paddingTop: 'calc(0.75rem + env(safe-area-inset-top, 0px))' }}>
         <h1 className="text-xl font-bold text-white shrink-0">🎵 Varus Music</h1>
         <div className="flex items-center gap-3">
           {isOffline && (
@@ -359,7 +359,7 @@ export default function App() {
         {/* Main player area */}
         <main className="flex-1 overflow-hidden relative bg-spotify-black">
           {/* ── Mobile: Queue panel ── */}
-          <div className={`md:hidden ${mobileView === 'queue' ? 'flex' : 'hidden'} flex-col h-full overflow-y-auto bg-spotify-darkgray pb-[132px]`}>
+          <div className={`md:hidden ${mobileView === 'queue' ? 'flex' : 'hidden'} flex-col h-full overflow-y-auto bg-spotify-darkgray pb-player-safe`}>
             {loading ? (
               <div className="flex items-center justify-center flex-1 h-full">
                 <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-spotify-green" />
@@ -381,7 +381,7 @@ export default function App() {
           </div>
 
           {/* ── Now Playing panel — desktop always, mobile only when 'nowplaying' ── */}
-          <div className={`${mobileView === 'nowplaying' ? 'flex' : 'hidden'} md:flex flex-col items-center justify-center h-full overflow-y-auto bg-gradient-to-b from-spotify-gray to-spotify-black p-6 md:p-8 pb-[132px] md:pb-8`}>
+          <div className={`${mobileView === 'nowplaying' ? 'flex' : 'hidden'} md:flex flex-col items-center justify-center h-full overflow-y-auto bg-gradient-to-b from-spotify-gray to-spotify-black p-6 md:p-8 pb-player-safe md:pb-8`}>
             {currentTrack ? (
               <div className="text-center w-full max-w-sm mx-auto">
                 {/* Album art */}

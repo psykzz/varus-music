@@ -25,3 +25,11 @@ body {
 .pr-safe  { padding-right:  env(safe-area-inset-right,  0px); }
 .mt-safe  { margin-top:     env(safe-area-inset-top,    0px); }
 .mb-safe  { margin-bottom:  env(safe-area-inset-bottom, 0px); }
+
+/* Bottom padding that clears the fixed mini-player + tab bar on mobile, including safe area.
+   Defined in @layer utilities so responsive variants like md:pb-8 can still override it. */
+@layer utilities {
+  .pb-player-safe {
+    padding-bottom: calc(132px + env(safe-area-inset-bottom, 0px));
+  }
+}
