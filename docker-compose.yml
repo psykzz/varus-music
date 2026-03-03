@@ -18,9 +18,7 @@ services:
 
   # ── Backend (Fastify API) ────────────────────────────────────────────────────
   backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
+    image: ${BACKEND_IMAGE:-ghcr.io/psykzz/varus-music-backend:latest}
     restart: unless-stopped
     ports:
       - "${BACKEND_PORT:-3001}:3001"
@@ -41,9 +39,7 @@ services:
 
   # ── Frontend (React / nginx) ─────────────────────────────────────────────────
   frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
+    image: ${FRONTEND_IMAGE:-ghcr.io/psykzz/varus-music-frontend:latest}
     restart: unless-stopped
     ports:
       - "${FRONTEND_PORT:-80}:80"
