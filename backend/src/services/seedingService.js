@@ -13,7 +13,7 @@ const LASTFM_BASE = 'https://ws.audioscrobbler.com/2.0/'
 const API_KEY = process.env.LASTFM_API_KEY
 
 // Rate-limit shared with lastfmService
-const MIN_INTERVAL = 1100
+const MIN_INTERVAL = 1000
 let lastRequestTime = 0
 
 async function throttledFetch(url) {

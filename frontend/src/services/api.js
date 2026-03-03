@@ -28,9 +28,13 @@ export async function refreshPlaylist() {
   )
 }
 
-export async function rotatePlaylist() {
+export async function rotatePlaylist({ currentTrackId } = {}) {
   return handleResponse(
-    await fetch(`${API_BASE}/playlist/rotate`, { method: 'POST', headers: authHeaders() })
+    await fetch(`${API_BASE}/playlist/rotate`, {
+      method: 'POST',
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ currentTrackId }),
+    })
   )
 }
 
@@ -129,5 +133,11 @@ export async function seedForUser(genres = []) {
       body: JSON.stringify({ genres }),
     })
   )
+}
+
+// --- Debug API ---
+
+export async function fetchDebugInfo() {
+  return handleResponse(await fetch(`${API_BASE}/debug/playlist-info`, { headers: authHeaders() }))
 }
 

@@ -6,7 +6,8 @@ import AuthScreen from './components/AuthScreen.jsx'
 import DownloadPanel from './components/DownloadPanel.jsx'
 import InstallBanner from './components/InstallBanner.jsx'
 import OnboardingModal from './components/OnboardingModal.jsx'
-import { fetchCurrentPlaylist, seedForUser, refreshPlaylist } from './services/api.js'
+import DebugPage from './components/DebugPage.jsx'
+import { fetchCurrentPlaylist, seedForUser, refreshPlaylist, rotatePlaylist } from './services/api.js'
 import { cachePlaylist, getCachedPlaylist } from './services/offlineCache.js'
 import { isAuthenticated, getUser, logout } from './services/auth.js'
 
@@ -18,23 +19,24 @@ export default function App() {
   const [error, setError] = useState(null)
   const [isOffline, setIsOffline] = useState(!navigator.onLine)
   const [showDownload, setShowDownload] = useState(false)
+  const [showDebug, setShowDebug] = useState(false)
   const [seeding, setSeeding] = useState(false)
+  const [newTrackIds, setNewTrackIds] = useState(new Set())
   const [showOnboarding, setShowOnboarding] = useState(() => {
     const u = isAuthenticated() ? getUser() : null
     return u ? u.onboardingComplete === false : false
   })
+  const [shuffle, setShuffle] = useState(() => localStorage.getItem('varus:shuffle') === 'true')
+  const [loop, setLoop] = useState(() => localStorage.getItem('varus:loop') === 'true')
 
   useEffect(() => {
     const handleOnline = () => setIsOffline(false)
     const handleOffline = () => setIsOffline(true)
-    const handleRotate = () => loadPlaylist()
     window.addEventListener('online', handleOnline)
     window.addEventListener('offline', handleOffline)
-    window.addEventListener('varus:rotate', handleRotate)
     return () => {
       window.removeEventListener('online', handleOnline)
       window.removeEventListener('offline', handleOffline)
-      window.removeEventListener('varus:rotate', handleRotate)
     }
   }, [])
 
@@ -51,6 +53,10 @@ export default function App() {
     return 0
   }
 
+  function persistNewTracks(cycleId, ids) {
+    localStorage.setItem('varus:newTracks', JSON.stringify({ cycleId: String(cycleId), ids: [...ids] }))
+  }
+
   async function loadPlaylist() {
     setLoading(true)
     setError(null)
@@ -59,6 +65,21 @@ export default function App() {
       setPlaylist(data)
       setCurrentIndex(data?.tracks ? restoreTrackIndex(data.tracks) : 0)
       if (data?.tracks) await cachePlaylist(data)
+      // Restore NEW-badge state for this cycle from localStorage
+      if (data?.id) {
+        try {
+          const saved = localStorage.getItem('varus:newTracks')
+          if (saved) {
+            const { cycleId, ids } = JSON.parse(saved)
+            setNewTrackIds(String(cycleId) === String(data.id) ? new Set(ids.map(String)) : new Set())
+          } else {
+            setNewTrackIds(new Set())
+          }
+        } catch {
+          setNewTrackIds(new Set())
+        }
+      }
+      return data
     } catch (err) {
       // Offline fallback: try IndexedDB cache
       const cached = await getCachedPlaylist()
@@ -68,8 +89,31 @@ export default function App() {
       } else {
         setError('Failed to load playlist. ' + (isOffline ? 'You are offline.' : (err?.message || 'Unknown error')))
       }
+      return null
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function handleRotate() {
+    // Keep loading spinner active for the full duration (API call + re-fetch)
+    setLoading(true)
+    const prevCycleId = playlist?.id != null ? String(playlist.id) : null
+    const prevTrackSet = new Set((playlist?.tracks ?? []).map((t) => String(t.id)))
+    try {
+      await rotatePlaylist({ currentTrackId: currentTrack?.id != null ? String(currentTrack.id) : undefined })
+    } catch (err) {
+      setError('Failed to rotate playlist: ' + (err?.message || 'Unknown error'))
+      setLoading(false)
+      return
+    }
+    const newData = await loadPlaylist()
+    if (newData && String(newData.id) !== prevCycleId) {
+      const freshIds = new Set(
+        (newData.tracks ?? []).map((t) => String(t.id)).filter((id) => !prevTrackSet.has(id))
+      )
+      setNewTrackIds(freshIds)
+      persistNewTracks(String(newData.id), freshIds)
     }
   }
 
@@ -82,9 +126,40 @@ export default function App() {
     }
   }, [currentTrack?.id])
 
+  // Remove NEW badge for a track when it becomes the current (i.e. is played)
+  useEffect(() => {
+    if (currentTrack?.id == null) return
+    const id = String(currentTrack.id)
+    setNewTrackIds((prev) => {
+      if (!prev.has(id)) return prev
+      const next = new Set(prev)
+      next.delete(id)
+      if (playlist?.id != null) persistNewTracks(String(playlist.id), next)
+      return next
+    })
+  }, [currentTrack?.id])
+
   function handleNext() {
     if (!playlist) return
-    setCurrentIndex((i) => (i + 1) % playlist.tracks.length)
+    if (shuffle) {
+      const len = playlist.tracks.length
+      setCurrentIndex((i) => {
+        if (len <= 1) return i
+        let next
+        do { next = Math.floor(Math.random() * len) } while (next === i)
+        return next
+      })
+    } else {
+      setCurrentIndex((i) => (i + 1) % playlist.tracks.length)
+    }
+  }
+
+  function handleToggleShuffle() {
+    setShuffle((v) => { localStorage.setItem('varus:shuffle', String(!v)); return !v })
+  }
+
+  function handleToggleLoop() {
+    setLoop((v) => { localStorage.setItem('varus:loop', String(!v)); return !v })
   }
 
   function handlePrev() {
@@ -148,7 +223,15 @@ export default function App() {
           {isOffline && (
             <span className="text-xs bg-yellow-600 text-white px-2 py-1 rounded-full shrink-0">Offline</span>
           )}
-          <CadenceSelector />
+          <CadenceSelector onRotate={handleRotate} isRotating={loading} />
+          <button
+            onClick={() => setShowDebug(true)}
+            className="text-spotify-lightgray hover:text-white p-1.5 rounded-md hover:bg-spotify-gray transition-colors shrink-0"
+            title="Playlist debug info"
+            aria-label="Playlist debug info"
+          >
+            <DebugIcon />
+          </button>
           <button
             onClick={() => setShowDownload(true)}
             className="text-spotify-lightgray hover:text-white p-1.5 rounded-md hover:bg-spotify-gray transition-colors shrink-0"
@@ -185,6 +268,7 @@ export default function App() {
               onRatingUpdate={handleRatingUpdate}
               onSeedLibrary={handleSeedLibrary}
               seeding={seeding}
+              newTrackIds={newTrackIds}
             />
           )}
         </aside>
@@ -245,12 +329,19 @@ export default function App() {
             onNext={handleNext}
             onPrev={handlePrev}
             onRatingUpdate={handleRatingUpdate}
+            shuffle={shuffle}
+            loop={loop}
+            onToggleShuffle={handleToggleShuffle}
+            onToggleLoop={handleToggleLoop}
           />
         </footer>
       )}
 
       {/* Download panel modal */}
       {showDownload && <DownloadPanel onClose={() => setShowDownload(false)} onDownloadComplete={loadPlaylist} />}
+
+      {/* Debug page overlay */}
+      {showDebug && <DebugPage onClose={() => setShowDebug(false)} />}
 
       {/* Onboarding modal — shown once for new users */}
       {showOnboarding && (
@@ -274,6 +365,15 @@ function DownloadIcon() {
       <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
       <polyline points="7 10 12 15 17 10" />
       <line x1="12" y1="15" x2="12" y2="3" />
+    </svg>
+  )
+}
+
+function DebugIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
     </svg>
   )
 }

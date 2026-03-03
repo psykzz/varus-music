@@ -15,6 +15,7 @@ import { cadenceRoutes } from './routes/cadence.js'
 import { authRoutes } from './routes/auth.js'
 import { downloadRoutes } from './routes/download.js'
 import { onboardingRoutes } from './routes/onboarding.js'
+import { debugRoutes } from './routes/debug.js'
 import { startScheduler } from './services/schedulerService.js'
 import { startWatcher } from './services/watcherService.js'
 
@@ -55,6 +56,7 @@ await fastify.register(ratingsRoutes, { prefix: '/api/ratings' })
 await fastify.register(cadenceRoutes, { prefix: '/api/cadence' })
 await fastify.register(downloadRoutes, { prefix: '/api/download' })
 await fastify.register(onboardingRoutes, { prefix: '/api/onboarding' })
+await fastify.register(debugRoutes, { prefix: '/api/debug' })
 
 fastify.get('/health', async () => ({ status: 'ok' }))
 

@@ -77,3 +77,118 @@ export async function enrichTrack(title, artist) {
     return {}
   }
 }
+
+/**
+ * Fetch globally popular tracks from the Last.fm chart.
+ * Returns an array of { title, artist } objects.
+ *
+ * @param {number} [limit=50]
+ * @param {number} [page=1]
+ */
+export async function fetchTopTracks(limit = 50, page = 1) {
+  if (!API_KEY) {
+    console.warn('[LastFM] LASTFM_API_KEY not set — skipping fetchTopTracks')
+    return []
+  }
+
+  try {
+    const params = new URLSearchParams({
+      method: 'chart.getTopTracks',
+      api_key: API_KEY,
+      limit: String(limit),
+      page: String(page),
+      format: 'json',
+    })
+
+    const res = await throttledFetch(`${LASTFM_BASE}?${params}`)
+    if (!res.ok) {
+      console.warn(`[LastFM] HTTP ${res.status} for chart.getTopTracks`)
+      return []
+    }
+
+    const data = await res.json()
+    const tracks = data?.tracks?.track ?? []
+    return tracks.map((t) => ({ title: t.name, artist: t.artist?.name ?? t.artist }))
+  } catch (err) {
+    console.warn('[LastFM] fetchTopTracks failed:', err.message)
+    return []
+  }
+}
+
+/**
+ * Fetch tracks similar to a given track from Last.fm.
+ * Returns an array of { title, artist } objects.
+ *
+ * @param {string} title
+ * @param {string} artist
+ * @param {number} [limit=20]
+ */
+export async function fetchSimilarTracks(title, artist, limit = 20) {
+  if (!API_KEY) {
+    console.warn('[LastFM] LASTFM_API_KEY not set — skipping fetchSimilarTracks')
+    return []
+  }
+
+  try {
+    const params = new URLSearchParams({
+      method: 'track.getSimilar',
+      api_key: API_KEY,
+      artist,
+      track: title,
+      autocorrect: '1',
+      limit: String(limit),
+      format: 'json',
+    })
+
+    const res = await throttledFetch(`${LASTFM_BASE}?${params}`)
+    if (!res.ok) {
+      console.warn(`[LastFM] HTTP ${res.status} for track.getSimilar`)
+      return []
+    }
+
+    const data = await res.json()
+    const tracks = data?.similartracks?.track ?? []
+    return tracks.map((t) => ({ title: t.name, artist: t.artist?.name ?? t.artist }))
+  } catch (err) {
+    console.warn('[LastFM] fetchSimilarTracks failed:', err.message)
+    return []
+  }
+}
+
+/**
+ * Fetch an artist's top tracks from Last.fm.
+ * Returns an array of { title, artist } objects.
+ *
+ * @param {string} artist
+ * @param {number} [limit=10]
+ */
+export async function fetchArtistTopTracks(artist, limit = 10) {
+  if (!API_KEY) {
+    console.warn('[LastFM] LASTFM_API_KEY not set — skipping fetchArtistTopTracks')
+    return []
+  }
+
+  try {
+    const params = new URLSearchParams({
+      method: 'artist.getTopTracks',
+      api_key: API_KEY,
+      artist,
+      autocorrect: '1',
+      limit: String(limit),
+      format: 'json',
+    })
+
+    const res = await throttledFetch(`${LASTFM_BASE}?${params}`)
+    if (!res.ok) {
+      console.warn(`[LastFM] HTTP ${res.status} for artist.getTopTracks`)
+      return []
+    }
+
+    const data = await res.json()
+    const tracks = data?.toptracks?.track ?? []
+    return tracks.map((t) => ({ title: t.name, artist: t.artist?.name ?? artist }))
+  } catch (err) {
+    console.warn('[LastFM] fetchArtistTopTracks failed:', err.message)
+    return []
+  }
+}

@@ -1,11 +1,13 @@
 import prisma from '../db.js'
 
-const DEFAULT_PLAYLIST_SIZE = 20
+const DEFAULT_PLAYLIST_SIZE = 100
 // Number of meaningful ratings before switching from discovery mode to personalised mode
 const DISCOVERY_THRESHOLD = 5
-// In discovery mode: how many slots go to globally popular vs random unrated
-const DISCOVERY_POPULAR_SLOTS = 12
+// In discovery mode: how many slots go to globally popular vs random unrated (50/50)
+const DISCOVERY_POPULAR_SLOTS = Math.floor(DEFAULT_PLAYLIST_SIZE * 0.5)
 const DISCOVERY_RANDOM_SLOTS = DEFAULT_PLAYLIST_SIZE - DISCOVERY_POPULAR_SLOTS
+// In personalised mode: cap on how many highly-rated (score > 0) tracks fill the cycle
+const MAX_RATED_RATIO = 0.5
 
 /**
  * Generate a new playlist cycle for a specific user.
@@ -15,11 +17,15 @@ const DISCOVERY_RANDOM_SLOTS = DEFAULT_PLAYLIST_SIZE - DISCOVERY_POPULAR_SLOTS
  *   - DISCOVERY_RANDOM_SLOTS randomly selected unrated tracks
  *
  * Users with enough ratings get the personalised algorithm:
- *   - Unrated tracks first (discovery slots), then sorted by personal score
+ *   - Up to 50% from highly-rated (score > 0) tracks, shuffled from a 2× candidate pool
+ *   - The rest filled with randomly shuffled unrated / neutral tracks
+ *   If the user has fewer liked tracks than the cap, all of them are included and
+ *   the remaining slots are filled with random tracks.
  *
  * @param {string} userId
+ * @param {{ preserveTrackIds?: string[] }} [opts]
  */
-export async function generatePlaylist(userId) {
+export async function generatePlaylist(userId, { preserveTrackIds = [] } = {}) {
   // Fetch all tracks with this user's ratings
   const tracks = await prisma.track.findMany({
     include: { ratings: true },
@@ -33,6 +39,9 @@ export async function generatePlaylist(userId) {
       },
     })
   }
+
+  // Normalise preserve list to strings for reliable comparison
+  const preserveSet = new Set(preserveTrackIds.map(String))
 
   // Split ratings into user's own and global aggregate
   const withUserRatings = tracks.map((t) => {
@@ -79,16 +88,42 @@ export async function generatePlaylist(userId) {
       ratingCount: t.userRatingCount,
     }))
 
-    // Sort: unrated tracks first (for discovery), then by personal score descending
-    scored.sort((a, b) => {
-      if (a.ratingCount === 0 && b.ratingCount > 0) return -1
-      if (b.ratingCount === 0 && a.ratingCount > 0) return 1
-      return b.score - a.score
-    })
+    // "Highly rated" = net-positive score. These fill up to 50% of the cycle.
+    const likedPool = scored.filter((t) => t.score > 0)
+    // Random pool: unrated or rated but not heavily disliked (score between -3 and 0 inclusive)
+    const randomPool = scored.filter((t) => t.score <= 0 && t.score > -3)
 
-    // Filter out heavily disliked tracks (score <= -3), but always include unrated tracks
-    const eligible = scored.filter((t) => t.score > -3 || t.ratingCount === 0)
-    selected = eligible.slice(0, DEFAULT_PLAYLIST_SIZE)
+    // Determine actual liked slots — capped at MAX_RATED_RATIO of the target size
+    const maxLikedSlots = Math.floor(DEFAULT_PLAYLIST_SIZE * MAX_RATED_RATIO)
+    const likedSlotCount = Math.min(likedPool.length, maxLikedSlots)
+
+    // Sort liked tracks by score descending, take a 2× candidate window, then shuffle
+    // so each rotation surfaces a varied subset of the user's favourites.
+    likedPool.sort((a, b) => b.score - a.score)
+    const likedCandidates = likedPool.slice(0, likedSlotCount * 2)
+    for (let i = likedCandidates.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [likedCandidates[i], likedCandidates[j]] = [likedCandidates[j], likedCandidates[i]]
+    }
+    const likedSelected = likedCandidates.slice(0, likedSlotCount)
+
+    // Fill remaining slots with randomly shuffled pool tracks
+    const randomSlotCount = DEFAULT_PLAYLIST_SIZE - likedSelected.length
+    for (let i = randomPool.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [randomPool[i], randomPool[j]] = [randomPool[j], randomPool[i]]
+    }
+    const randomSelected = randomPool.slice(0, randomSlotCount)
+
+    selected = [...likedSelected, ...randomSelected]
+  }
+
+  // Ensure preserved tracks are included (e.g. currently playing track).
+  // Prepend them at position 0 and trim the tail to stay within the size limit.
+  if (preserveSet.size > 0) {
+    const preservedEntries = selected.filter((t) => preserveSet.has(String(t.id)))
+    const rest = selected.filter((t) => !preserveSet.has(String(t.id)))
+    selected = [...preservedEntries, ...rest].slice(0, DEFAULT_PLAYLIST_SIZE)
   }
 
   // Get this user's cadence to determine expiry

@@ -53,9 +53,11 @@ export async function playlistRoutes(fastify) {
 
   // Rotate the playlist exactly as the cadence scheduler would:
   // deactivates the current cycle, generates a fresh one, and resets nextRun.
+  // Optionally accepts { currentTrackId } to keep the playing track in the new cycle.
   fastify.post('/rotate', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     const userId = request.user.sub
-    const { cycle, nextRun } = await rotatePlaylistForUser(userId)
+    const { currentTrackId } = request.body ?? {}
+    const { cycle, nextRun } = await rotatePlaylistForUser(userId, { currentTrackId })
     return reply.code(201).send({ message: 'Playlist rotated', cycleId: cycle.id, nextRun })
   })
 
