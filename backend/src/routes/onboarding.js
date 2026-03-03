@@ -16,6 +16,7 @@ export async function onboardingRoutes(fastify) {
       select: { onboardingComplete: true },
     })
     if (!user) return reply.code(404).send({ error: 'User not found' })
+    if (user.onboardingComplete) return { queued: 0, alreadyComplete: true, genres: [] }
 
     const { genres } = request.body ?? {}
     const selectedGenres = Array.isArray(genres) && genres.length > 0

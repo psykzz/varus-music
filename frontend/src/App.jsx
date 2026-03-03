@@ -6,6 +6,7 @@ import AuthScreen from './components/AuthScreen.jsx'
 import DownloadPanel from './components/DownloadPanel.jsx'
 import InstallBanner from './components/InstallBanner.jsx'
 import OnboardingModal from './components/OnboardingModal.jsx'
+import BuildingPlaylistScreen from './components/BuildingPlaylistScreen.jsx'
 import DebugPage from './components/DebugPage.jsx'
 import { fetchCurrentPlaylist, seedForUser, refreshPlaylist, rotatePlaylist } from './services/api.js'
 import { cachePlaylist, getCachedPlaylist } from './services/offlineCache.js'
@@ -26,6 +27,10 @@ export default function App() {
     const u = isAuthenticated() ? getUser() : null
     return u ? u.onboardingComplete === false : false
   })
+  // True while the initial seeding/download is in progress (survives page reloads).
+  const [buildingPlaylist, setBuildingPlaylist] = useState(
+    () => localStorage.getItem('varus_building') === 'true'
+  )
   const [shuffle, setShuffle] = useState(() => localStorage.getItem('varus:shuffle') === 'true')
   const [loop, setLoop] = useState(() => localStorage.getItem('varus:loop') === 'true')
 
@@ -209,6 +214,7 @@ export default function App() {
         onAuth={(u) => {
           setUser(u)
           if (u.onboardingComplete === false) setShowOnboarding(true)
+          if (localStorage.getItem('varus_building') === 'true') setBuildingPlaylist(true)
         }}
       />
     )
@@ -344,11 +350,24 @@ export default function App() {
       {showDebug && <DebugPage onClose={() => setShowDebug(false)} />}
 
       {/* Onboarding modal — shown once for new users */}
-      {showOnboarding && (
+      {showOnboarding && !buildingPlaylist && (
         <OnboardingModal
           onComplete={() => {
             setShowOnboarding(false)
+            setBuildingPlaylist(true)
             loadPlaylist()
+          }}
+        />
+      )}
+
+      {/* Building screen — shown on reloads while the initial download is in flight */}
+      {buildingPlaylist && (
+        <BuildingPlaylistScreen
+          onReady={(data) => {
+            localStorage.removeItem('varus_building')
+            setBuildingPlaylist(false)
+            setPlaylist(data)
+            setCurrentIndex(data?.tracks ? restoreTrackIndex(data.tracks) : 0)
           }}
         />
       )}

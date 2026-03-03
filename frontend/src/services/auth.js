@@ -33,6 +33,12 @@ function storeSession({ token, user }) {
   localStorage.setItem(USER_KEY, JSON.stringify(user))
 }
 
+export function patchUser(updates) {
+  const current = getUser()
+  if (!current) return
+  localStorage.setItem(USER_KEY, JSON.stringify({ ...current, ...updates }))
+}
+
 export function logout() {
   localStorage.removeItem(TOKEN_KEY)
   localStorage.removeItem(USER_KEY)

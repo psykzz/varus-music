@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
-import { fetchGenres, seedForUser } from '../services/api.js'
-import { refreshPlaylist } from '../services/api.js'
+import { fetchGenres, seedForUser, refreshPlaylist } from '../services/api.js'
+import { patchUser } from '../services/auth.js'
 
 const GENRE_ICONS = {
   pop: '🎤',
@@ -39,10 +39,18 @@ export default function OnboardingModal({ onComplete }) {
     setStatus('seeding')
     try {
       await seedForUser(chosenGenres)
+      // Persist onboarding completion to localStorage immediately so a
+      // page reload does not re-trigger the modal.
+      patchUser({ onboardingComplete: true })
+      // Mark that a playlist build is in progress so reloads show the
+      // building screen instead of the genre picker.
+      localStorage.setItem('varus_building', 'true')
       await refreshPlaylist()
     } catch (err) {
       console.error('[Onboarding] Seeding failed:', err)
-      // Even on failure, proceed — library may already have tracks
+      // Even on failure, mark complete so the modal doesn't loop.
+      patchUser({ onboardingComplete: true })
+      localStorage.setItem('varus_building', 'true')
     }
     setStatus('done')
     onComplete()
