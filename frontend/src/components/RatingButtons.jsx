@@ -5,8 +5,12 @@ export default function RatingButtons({ track, onRatingUpdate, size = 'md' }) {
   const [submitting, setSubmitting] = useState(false)
   const [lastRating, setLastRating] = useState(null)
 
-  const iconClass = size === 'sm' ? 'w-3.5 h-3.5' : 'w-4 h-4'
-  const buttonClass = size === 'sm' ? 'p-1' : 'p-1.5'
+  // Minimum 44 × 44 px touch targets (iOS / Material guidelines)
+  const iconClass = size === 'sm' ? 'w-4 h-4' : 'w-5 h-5'
+  const buttonClass =
+    size === 'sm'
+      ? 'p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center'
+      : 'p-3 min-w-[44px] min-h-[44px] flex items-center justify-center'
 
   async function handleRate(value) {
     if (submitting) return

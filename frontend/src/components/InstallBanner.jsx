@@ -27,7 +27,7 @@ export default function InstallBanner() {
   if (!visible) return null
 
   return (
-    <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 bg-spotify-darkgray border border-spotify-gray rounded-xl px-4 py-3 shadow-xl text-sm animate-fade-in">
+    <div className="fixed bottom-[132px] md:bottom-24 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 bg-spotify-darkgray border border-spotify-gray rounded-xl px-4 py-3 shadow-xl text-sm animate-fade-in max-w-[calc(100vw-2rem)] w-max">
       <span className="text-white">Install Varus Music for offline playback</span>
       <button
         onClick={handleInstall}

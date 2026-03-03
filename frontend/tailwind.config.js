@@ -3,6 +3,10 @@ export default {
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
   theme: {
     extend: {
+      screens: {
+        // orientation-based variants:  landscape:flex-row, landscape:hidden, etc.
+        landscape: { raw: '(orientation: landscape)' },
+      },
       colors: {
         spotify: {
           green: '#1DB954',

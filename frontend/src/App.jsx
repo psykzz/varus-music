@@ -11,6 +11,7 @@ import DebugPage from './components/DebugPage.jsx'
 import { fetchCurrentPlaylist, seedForUser, refreshPlaylist, rotatePlaylist } from './services/api.js'
 import { cachePlaylist, getCachedPlaylist } from './services/offlineCache.js'
 import { isAuthenticated, getUser, logout } from './services/auth.js'
+import MobileTabBar from './components/MobileTabBar.jsx'
 
 export default function App() {
   const [user, setUser] = useState(() => (isAuthenticated() ? getUser() : null))
@@ -35,6 +36,9 @@ export default function App() {
   const [loop, setLoop] = useState(() => localStorage.getItem('varus:loop') === 'true')
   // null = hidden; { cached, total, done } while caching is in progress
   const [cacheProgress, setCacheProgress] = useState(null)
+  // Mobile UI state
+  const [mobileExpanded, setMobileExpanded] = useState(false)
+  const [mobileView, setMobileView] = useState('nowplaying')
 
   useEffect(() => {
     const handleOnline = () => setIsOffline(false)
@@ -245,7 +249,7 @@ export default function App() {
   return (
     <div className="flex flex-col h-screen bg-spotify-black">
       {/* Header */}
-      <header className="flex items-center justify-between px-6 py-4 bg-spotify-darkgray border-b border-spotify-gray gap-4">
+      <header className="flex items-center justify-between px-3 md:px-6 py-3 md:py-4 bg-spotify-darkgray border-b border-spotify-gray gap-2 md:gap-4 pt-safe">
         <h1 className="text-xl font-bold text-white shrink-0">🎵 Varus Music</h1>
         <div className="flex items-center gap-3 flex-1 justify-end">
           {isOffline && (
@@ -254,7 +258,7 @@ export default function App() {
           <CadenceSelector onRotate={handleRotate} isRotating={loading} />
           <button
             onClick={() => setShowDebug(true)}
-            className="text-spotify-lightgray hover:text-white p-1.5 rounded-md hover:bg-spotify-gray transition-colors shrink-0"
+            className="hidden md:flex items-center text-spotify-lightgray hover:text-white p-1.5 rounded-md hover:bg-spotify-gray transition-colors shrink-0"
             title="Playlist debug info"
             aria-label="Playlist debug info"
           >
@@ -270,18 +274,19 @@ export default function App() {
           </button>
           <button
             onClick={handleLogout}
-            className="text-xs text-spotify-lightgray hover:text-white shrink-0"
+            className="text-xs text-spotify-lightgray hover:text-white shrink-0 flex items-center gap-1"
             title={`Sign out (${user.username})`}
           >
-            {user.username} ↩
+            <span className="hidden md:inline">{user.username}</span>
+            <span>↩</span>
           </button>
         </div>
       </header>
 
       {/* Main content */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Track list sidebar */}
-        <aside className="w-80 bg-spotify-darkgray border-r border-spotify-gray overflow-y-auto">
+        {/* Track list sidebar — desktop only */}
+        <aside className="hidden md:flex md:flex-col w-80 bg-spotify-darkgray border-r border-spotify-gray overflow-y-auto">
           {loading ? (
             <div className="flex items-center justify-center h-full">
               <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-spotify-green" />
@@ -302,56 +307,80 @@ export default function App() {
         </aside>
 
         {/* Main player area */}
-        <main className="flex-1 flex flex-col items-center justify-center bg-gradient-to-b from-spotify-gray to-spotify-black p-8">
-          {currentTrack ? (
-            <div className="text-center mb-8">
-              {/* Album art */}
-              <div className="w-64 h-64 mx-auto rounded-xl mb-6 shadow-2xl overflow-hidden bg-spotify-gray flex items-center justify-center">
-                {currentTrack.albumArtUrl ? (
-                  <img
-                    src={currentTrack.albumArtUrl}
-                    alt={`${currentTrack.album || currentTrack.title} cover`}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <span className="text-6xl">🎵</span>
+        <main className="flex-1 overflow-hidden relative bg-spotify-black">
+          {/* ── Mobile: Queue panel ── */}
+          <div className={`md:hidden ${mobileView === 'queue' ? 'flex' : 'hidden'} flex-col h-full overflow-y-auto bg-spotify-darkgray pb-[132px]`}>
+            {loading ? (
+              <div className="flex items-center justify-center flex-1 h-full">
+                <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-spotify-green" />
+              </div>
+            ) : error ? (
+              <div className="p-4 text-red-400 text-sm">{error}</div>
+            ) : (
+              <TrackList
+                tracks={playlist?.tracks ?? []}
+                currentIndex={currentIndex}
+                onSelect={(i) => { handleSelectTrack(i); setMobileView('nowplaying') }}
+                onRatingUpdate={handleRatingUpdate}
+                onSeedLibrary={handleSeedLibrary}
+                seeding={seeding}
+                newTrackIds={newTrackIds}
+              />
+            )}
+          </div>
+
+          {/* ── Now Playing panel — desktop always, mobile only when 'nowplaying' ── */}
+          <div className={`${mobileView === 'nowplaying' ? 'flex' : 'hidden'} md:flex flex-col items-center justify-center h-full overflow-y-auto bg-gradient-to-b from-spotify-gray to-spotify-black p-6 md:p-8 pb-[132px] md:pb-8`}>
+            {currentTrack ? (
+              <div className="text-center w-full max-w-sm mx-auto">
+                {/* Album art */}
+                <div className="w-48 h-48 sm:w-56 sm:h-56 md:w-64 md:h-64 mx-auto rounded-xl mb-5 shadow-2xl overflow-hidden bg-spotify-gray flex items-center justify-center">
+                  {currentTrack.albumArtUrl ? (
+                    <img
+                      src={currentTrack.albumArtUrl}
+                      alt={`${currentTrack.album || currentTrack.title} cover`}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-6xl">🎵</span>
+                  )}
+                </div>
+                <h2 className="text-xl md:text-2xl font-bold text-white">{currentTrack.title}</h2>
+                <p className="text-spotify-lightgray mt-1">{currentTrack.artist}</p>
+                {currentTrack.album && (
+                  <p className="text-spotify-lightgray text-sm mt-1">{currentTrack.album}</p>
                 )}
               </div>
-              <h2 className="text-2xl font-bold text-white">{currentTrack.title}</h2>
-              <p className="text-spotify-lightgray mt-1">{currentTrack.artist}</p>
-              {currentTrack.album && (
-                <p className="text-spotify-lightgray text-sm mt-1">{currentTrack.album}</p>
-              )}
-            </div>
-          ) : (
-            <div className="text-center">
-              <span className="text-6xl mb-6 block">🎵</span>
-              <p className="text-xl text-white font-semibold">Your library is empty</p>
-              <p className="text-spotify-lightgray text-sm mt-2 mb-6">
-                Download music, or kick-start your library with popular tracks across a mix of genres.
-              </p>
-              <button
-                onClick={handleSeedLibrary}
-                disabled={seeding}
-                className="px-6 py-3 bg-spotify-green text-black font-bold rounded-full hover:bg-green-400 transition-colors disabled:opacity-50 flex items-center gap-2 mx-auto"
-              >
-                {seeding ? (
-                  <>
-                    <span className="animate-spin rounded-full h-4 w-4 border-t-2 border-black inline-block" />
-                    Queuing tracks…
-                  </>
-                ) : (
-                  'Seed with popular tracks'
-                )}
-              </button>
-            </div>
-          )}
+            ) : (
+              <div className="text-center px-4">
+                <span className="text-6xl mb-6 block">🎵</span>
+                <p className="text-xl text-white font-semibold">Your library is empty</p>
+                <p className="text-spotify-lightgray text-sm mt-2 mb-6">
+                  Download music, or kick-start your library with popular tracks across a mix of genres.
+                </p>
+                <button
+                  onClick={handleSeedLibrary}
+                  disabled={seeding}
+                  className="px-6 py-3 bg-spotify-green text-black font-bold rounded-full hover:bg-green-400 transition-colors disabled:opacity-50 flex items-center gap-2 mx-auto"
+                >
+                  {seeding ? (
+                    <>
+                      <span className="animate-spin rounded-full h-4 w-4 border-t-2 border-black inline-block" />
+                      Queuing tracks…
+                    </>
+                  ) : (
+                    'Seed with popular tracks'
+                  )}
+                </button>
+              </div>
+            )}
+          </div>
         </main>
       </div>
 
-      {/* Bottom player bar */}
+      {/* Bottom player bar — desktop footer; mobile renders fixed mini-bar via Player itself */}
       {currentTrack && (
-        <footer className="bg-spotify-gray border-t border-spotify-gray">
+        <footer className="md:bg-spotify-gray md:border-t md:border-spotify-gray">
           <Player
             track={currentTrack}
             onNext={handleNext}
@@ -361,9 +390,14 @@ export default function App() {
             loop={loop}
             onToggleShuffle={handleToggleShuffle}
             onToggleLoop={handleToggleLoop}
+            mobileExpanded={mobileExpanded}
+            onExpandedChange={setMobileExpanded}
           />
         </footer>
       )}
+
+      {/* Mobile tab bar — fixed above mini-player */}
+      <MobileTabBar activeView={mobileView} onChange={setMobileView} />
 
       {/* Download panel modal */}
       {showDownload && <DownloadPanel onClose={() => setShowDownload(false)} onDownloadComplete={loadPlaylist} />}
@@ -396,7 +430,7 @@ export default function App() {
 
       {/* Offline cache progress indicator */}
       {cacheProgress && (
-        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 bg-spotify-darkgray border border-spotify-gray rounded-full px-4 py-2 flex items-center gap-3 shadow-lg text-sm text-spotify-lightgray min-w-64">
+        <div className="fixed bottom-[132px] md:bottom-24 left-1/2 -translate-x-1/2 z-50 bg-spotify-darkgray border border-spotify-gray rounded-full px-4 py-2 flex items-center gap-3 shadow-lg text-sm text-spotify-lightgray min-w-64 max-w-[calc(100vw-2rem)]">
           {!cacheProgress.done ? (
             <span className="animate-spin rounded-full h-3.5 w-3.5 border-t-2 border-spotify-green shrink-0" />
           ) : (

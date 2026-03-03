@@ -34,7 +34,7 @@ export default function TrackList({ tracks, currentIndex, onSelect, onRatingUpda
         <div
           key={track.id}
           onClick={() => onSelect(index)}
-          className={`flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-spotify-gray transition-colors ${
+          className={`flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-spotify-gray transition-colors ${
             index === currentIndex ? 'bg-spotify-gray' : ''
           }`}
         >
@@ -94,3 +94,4 @@ export default function TrackList({ tracks, currentIndex, onSelect, onRatingUpda
     </div>
   )
 }
+````
