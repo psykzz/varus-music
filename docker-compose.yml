@@ -26,6 +26,7 @@ services:
       DATABASE_URL: postgresql://varus:${POSTGRES_PASSWORD:-varus_music_secret}@postgres:5432/varus_music
       JWT_SECRET: ${JWT_SECRET:-varus-music-dev-secret-change-in-production}
       PORT: 3001
+      LASTFM_API_KEY: ${LASTFM_API_KEY:-your_lastfm_api_key_here}
       MUSIC_STORAGE_PATH: /data/music
       WATCH_FOLDER: /data/watch
     volumes:

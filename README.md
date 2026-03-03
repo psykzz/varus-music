@@ -29,12 +29,73 @@ varus-music/
 
 ## Quick Start
 
-### Prerequisites
+### Docker Compose (recommended)
+
+**1. Create a `.env` file in the project root:**
+
+```env
+# PostgreSQL
+POSTGRES_PASSWORD=change_me
+
+# Auth
+JWT_SECRET=change_me_to_a_long_random_string
+
+# Last.fm — required for scrobbling / metadata enrichment
+# Get a free API key at https://www.last.fm/api/account/create
+LASTFM_API_KEY=your_lastfm_api_key_here
+
+# Storage paths (defaults to ./storage/* if not set)
+# MUSIC_PATH=/mnt/nas/music
+# WATCH_PATH=/mnt/nas/watch
+
+# Ports (optional overrides)
+# BACKEND_PORT=3001
+# FRONTEND_PORT=80
+
+# Image tags (optional — defaults to latest from GHCR)
+# BACKEND_IMAGE=ghcr.io/psykzz/varus-music-backend:latest
+# FRONTEND_IMAGE=ghcr.io/psykzz/varus-music-frontend:latest
+```
+
+**2. Pull and start all services:**
+
+```bash
+docker compose --env-file .env pull
+docker compose --env-file .env up -d
+```
+
+**3. Other useful commands:**
+
+```bash
+# View logs for all services
+docker compose logs -f
+
+# View logs for a specific service
+docker compose logs -f backend
+
+# Stop all services
+docker compose down
+
+# Stop and remove volumes (⚠️ deletes database)
+docker compose down -v
+
+# Restart a single service after an update
+docker compose pull backend
+docker compose up -d --no-deps backend
+```
+
+Open http://localhost in your browser (or whichever port `FRONTEND_PORT` is set to).
+
+---
+
+### Local Development
+
+#### Prerequisites
 
 - Node.js 18+
 - npm 9+
 
-### Backend
+#### Backend
 
 ```bash
 cd backend
@@ -44,7 +105,7 @@ npm run db:migrate   # creates SQLite DB and runs migrations
 npm run dev          # starts on http://localhost:3001
 ```
 
-### Frontend
+#### Frontend
 
 ```bash
 cd frontend
