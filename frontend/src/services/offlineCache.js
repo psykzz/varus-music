@@ -39,11 +39,15 @@ export async function cachePlaylist(playlist) {
       tx.onerror = () => reject(tx.error)
     })
 
-    // Tell the Service Worker to pre-cache the audio files
-    if (navigator.serviceWorker.controller) {
-      navigator.serviceWorker.controller.postMessage({
-        type: 'CACHE_PLAYLIST',
-        urls: (playlist.tracks ?? []).map((t) => `/files/${t.filename}`),
+    // Tell the Service Worker to pre-cache the audio files.
+    // Use serviceWorker.ready so the message is never lost on first install
+    // (when .controller may still be null).
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.ready.then((reg) => {
+        reg.active?.postMessage({
+          type: 'CACHE_PLAYLIST',
+          urls: (playlist.tracks ?? []).map((t) => `/files/${t.filename}`),
+        })
       })
     }
   } catch (err) {

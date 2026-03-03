@@ -33,6 +33,8 @@ export default function App() {
   )
   const [shuffle, setShuffle] = useState(() => localStorage.getItem('varus:shuffle') === 'true')
   const [loop, setLoop] = useState(() => localStorage.getItem('varus:loop') === 'true')
+  // null = hidden; { cached, total, done } while caching is in progress
+  const [cacheProgress, setCacheProgress] = useState(null)
 
   useEffect(() => {
     const handleOnline = () => setIsOffline(false)
@@ -42,6 +44,26 @@ export default function App() {
     return () => {
       window.removeEventListener('online', handleOnline)
       window.removeEventListener('offline', handleOffline)
+    }
+  }, [])
+
+  // Listen for caching progress messages from the service worker
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) return
+    let dismissTimer = null
+    const handler = (event) => {
+      if (event.data?.type !== 'CACHE_PROGRESS') return
+      const { cached, total, done } = event.data
+      setCacheProgress({ cached, total, done })
+      if (done) {
+        clearTimeout(dismissTimer)
+        dismissTimer = setTimeout(() => setCacheProgress(null), 2500)
+      }
+    }
+    navigator.serviceWorker.addEventListener('message', handler)
+    return () => {
+      navigator.serviceWorker.removeEventListener('message', handler)
+      clearTimeout(dismissTimer)
     }
   }, [])
 
@@ -370,6 +392,27 @@ export default function App() {
             setCurrentIndex(data?.tracks ? restoreTrackIndex(data.tracks) : 0)
           }}
         />
+      )}
+
+      {/* Offline cache progress indicator */}
+      {cacheProgress && (
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 bg-spotify-darkgray border border-spotify-gray rounded-full px-4 py-2 flex items-center gap-3 shadow-lg text-sm text-spotify-lightgray min-w-64">
+          {!cacheProgress.done ? (
+            <span className="animate-spin rounded-full h-3.5 w-3.5 border-t-2 border-spotify-green shrink-0" />
+          ) : (
+            <span className="text-spotify-green shrink-0">✓</span>
+          )}
+          <span className="flex-1">
+            {cacheProgress.done
+              ? 'Playlist saved for offline use'
+              : `Saving for offline… ${cacheProgress.cached}/${cacheProgress.total}`}
+          </span>
+          {!cacheProgress.done && (
+            <div className="absolute bottom-0 left-0 h-0.5 bg-spotify-green rounded-full transition-all duration-300"
+              style={{ width: `${Math.round((cacheProgress.cached / cacheProgress.total) * 100)}%` }}
+            />
+          )}
+        </div>
       )}
 
       {/* PWA install banner */}

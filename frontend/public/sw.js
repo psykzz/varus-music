@@ -28,10 +28,37 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('message', (event) => {
   if (event.data?.type === 'CACHE_PLAYLIST') {
     const urls = event.data.urls ?? []
+    const total = urls.length
+    if (total === 0) return
+
     event.waitUntil(
-      caches.open(AUDIO_CACHE_NAME).then((cache) =>
-        Promise.allSettled(urls.map((url) => cache.add(url)))
-      )
+      caches.open(AUDIO_CACHE_NAME).then(async (cache) => {
+        let cached = 0
+
+        const notifyClients = (done) => {
+          self.clients
+            .matchAll({ includeUncontrolled: true, type: 'window' })
+            .then((clients) =>
+              clients.forEach((c) =>
+                c.postMessage({ type: 'CACHE_PROGRESS', cached, total, done })
+              )
+            )
+        }
+
+        for (const url of urls) {
+          // Skip URLs that are already in the cache  (deduplication)
+          const existing = await cache.match(url)
+          if (!existing) {
+            try {
+              await cache.add(url)
+            } catch {
+              // Individual failure — keep going for the remaining tracks
+            }
+          }
+          cached++
+          notifyClients(cached === total)
+        }
+      })
     )
   }
 })
