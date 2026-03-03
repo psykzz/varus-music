@@ -33,17 +33,21 @@ self.addEventListener('message', (event) => {
 
     event.waitUntil(
       caches.open(AUDIO_CACHE_NAME).then(async (cache) => {
-        let cached = 0
+        let completed = 0
+        let failed = 0
 
         const notifyClients = (done) => {
           self.clients
             .matchAll({ includeUncontrolled: true, type: 'window' })
             .then((clients) =>
               clients.forEach((c) =>
-                c.postMessage({ type: 'CACHE_PROGRESS', cached, total, done })
+                c.postMessage({ type: 'CACHE_PROGRESS', cached: completed, total, failed, done })
               )
             )
         }
+
+        // Send an immediate update so the UI can show progress right away
+        notifyClients(false)
 
         for (const url of urls) {
           // Skip URLs that are already in the cache  (deduplication)
@@ -51,12 +55,16 @@ self.addEventListener('message', (event) => {
           if (!existing) {
             try {
               await cache.add(url)
+              completed++
             } catch {
               // Individual failure — keep going for the remaining tracks
+              failed++
+              completed++
             }
+          } else {
+            completed++
           }
-          cached++
-          notifyClients(cached === total)
+          notifyClients(completed === total)
         }
       })
     )

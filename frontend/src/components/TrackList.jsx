@@ -1,6 +1,6 @@
 import RatingButtons from './RatingButtons.jsx'
 
-export default function TrackList({ tracks, currentIndex, onSelect, onRatingUpdate, onSeedLibrary, seeding, newTrackIds = new Set() }) {
+export default function TrackList({ tracks, currentIndex, onSelect, onRatingUpdate, onSeedLibrary, seeding, newTrackIds = new Set(), cacheProgress = null }) {
   if (!tracks.length) {
     return (
       <div className="p-6 text-center mt-6 flex flex-col gap-3">
@@ -27,9 +27,36 @@ export default function TrackList({ tracks, currentIndex, onSelect, onRatingUpda
 
   return (
     <div className="py-2">
-      <h2 className="px-4 py-2 text-xs font-semibold uppercase tracking-wider text-spotify-lightgray">
-        Current Cycle
-      </h2>
+      <div className="px-4 pt-2 pb-1">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-spotify-lightgray shrink-0">
+            Current Cycle
+          </h2>
+          {cacheProgress && (
+            <div className="flex items-center gap-1.5 text-xs">
+              {!cacheProgress.done ? (
+                <span className="animate-spin rounded-full h-2.5 w-2.5 border-t-2 border-spotify-green shrink-0" />
+              ) : (
+                <span className="text-spotify-green shrink-0">✓</span>
+              )}
+              <span className={cacheProgress.done ? 'text-spotify-green' : 'text-spotify-lightgray'}>
+                {cacheProgress.cached} / {cacheProgress.total} downloaded
+              </span>
+              {cacheProgress.failed > 0 && (
+                <span className="text-orange-400">· {cacheProgress.failed} failed</span>
+              )}
+            </div>
+          )}
+        </div>
+        {cacheProgress && !cacheProgress.done && cacheProgress.total > 0 && (
+          <div className="mt-1.5 h-0.5 bg-spotify-gray rounded-full overflow-hidden">
+            <div
+              className="h-full bg-spotify-green rounded-full transition-all duration-300"
+              style={{ width: `${Math.round((cacheProgress.cached / cacheProgress.total) * 100)}%` }}
+            />
+          </div>
+        )}
+      </div>
       {tracks.map((track, index) => (
         <div
           key={track.id}

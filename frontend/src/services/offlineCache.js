@@ -56,6 +56,25 @@ export async function cachePlaylist(playlist) {
 }
 
 /**
+ * Query the Service Worker audio cache to find how many of the given
+ * /files/<filename> URLs are already cached.  Safe to call from the main
+ * thread — uses the Cache API directly.
+ *
+ * Returns { cached: number, total: number }
+ */
+export async function getAudioCacheStatus(urls = []) {
+  if (!('caches' in window) || urls.length === 0) return { cached: 0, total: urls.length }
+  try {
+    const cache = await caches.open('varus-music-audio-v1')
+    const results = await Promise.all(urls.map((url) => cache.match(url)))
+    const cached = results.filter(Boolean).length
+    return { cached, total: urls.length }
+  } catch {
+    return { cached: 0, total: urls.length }
+  }
+}
+
+/**
  * Retrieve the cached playlist from IndexedDB (for offline use).
  */
 export async function getCachedPlaylist() {
