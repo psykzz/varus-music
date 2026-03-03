@@ -25,6 +25,8 @@ CREATE TABLE IF NOT EXISTS "Track" (
   "year"        INTEGER,
   "lastfmUrl"   TEXT,
   "playCount"   INTEGER      NOT NULL DEFAULT 0,
+  "filePurged"  BOOLEAN      NOT NULL DEFAULT false,
+  "sourceUrl"   TEXT,
   "createdAt"   TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   "updatedAt"   TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT "Track_pkey" PRIMARY KEY ("id")
@@ -93,3 +95,7 @@ CREATE TABLE IF NOT EXISTS "DownloadJob" (
   CONSTRAINT "DownloadJob_userId_fkey"  FOREIGN KEY ("userId")  REFERENCES "User"("id")  ON DELETE CASCADE,
   CONSTRAINT "DownloadJob_trackId_fkey" FOREIGN KEY ("trackId") REFERENCES "Track"("id")
 );
+
+-- Idempotent column additions for upgrading existing databases
+ALTER TABLE "Track" ADD COLUMN IF NOT EXISTS "filePurged" BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE "Track" ADD COLUMN IF NOT EXISTS "sourceUrl"  TEXT;

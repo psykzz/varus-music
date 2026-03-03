@@ -37,6 +37,8 @@ model Track {
   year         Int?
   lastfmUrl    String?
   playCount    Int      @default(0)  // incremented on natural completion (no skip)
+  filePurged   Boolean  @default(false) // true when the audio file has been deleted from disk
+  sourceUrl    String?  // original download URL for re-fetching purged files
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 

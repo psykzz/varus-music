@@ -3,6 +3,7 @@ import prisma from '../db.js'
 import { generatePlaylist } from './playlistService.js'
 import { enqueueDownload, searchAudio } from './downloadService.js'
 import { fetchTopTracks, fetchSimilarTracks, fetchArtistTopTracks } from './lastfmService.js'
+import { purgeUnusedFiles } from './cleanupService.js'
 
 // Maximum new Last.fm tracks to seed per rotation (they download in the background)
 const MAX_SEED_TRACKS = 20
@@ -57,6 +58,11 @@ export async function rotatePlaylistForUser(userId, { currentTrackId } = {}) {
   // playlist through the addTrackToActivePlaylist hook in downloadService.
   seedFromLastfm(userId).catch((err) => {
     console.error('[Scheduler] seedFromLastfm error:', err)
+  })
+
+  // Purge audio files for tracks no longer in any active playlist
+  purgeUnusedFiles().catch((err) => {
+    console.error('[Scheduler] purgeUnusedFiles error:', err)
   })
 
   return { cycle, nextRun: setting.nextRun }
