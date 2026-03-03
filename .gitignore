@@ -19,8 +19,9 @@ backend/node_modules/
 *.db-wal
 *.db-shm
 
-# Music storage (uploaded files)
-backend/storage/
+# Music storage (uploaded files — keep the directory structure but not files)
+backend/storage/**
+!backend/storage/**/.gitkeep
 
 # Logs
 *.log

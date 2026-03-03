@@ -2,30 +2,54 @@ import { useState, useEffect } from 'react'
 import Player from './components/Player.jsx'
 import TrackList from './components/TrackList.jsx'
 import CadenceSelector from './components/CadenceSelector.jsx'
-import { fetchCurrentPlaylist } from './services/api.js'
-import { cachePlaylist } from './services/offlineCache.js'
+import AuthScreen from './components/AuthScreen.jsx'
+import DownloadPanel from './components/DownloadPanel.jsx'
+import InstallBanner from './components/InstallBanner.jsx'
+import OnboardingModal from './components/OnboardingModal.jsx'
+import { fetchCurrentPlaylist, seedForUser, refreshPlaylist } from './services/api.js'
+import { cachePlaylist, getCachedPlaylist } from './services/offlineCache.js'
+import { isAuthenticated, getUser, logout } from './services/auth.js'
 
 export default function App() {
+  const [user, setUser] = useState(() => (isAuthenticated() ? getUser() : null))
   const [playlist, setPlaylist] = useState(null)
   const [currentIndex, setCurrentIndex] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [isOffline, setIsOffline] = useState(!navigator.onLine)
+  const [showDownload, setShowDownload] = useState(false)
+  const [seeding, setSeeding] = useState(false)
+  const [showOnboarding, setShowOnboarding] = useState(() => {
+    const u = isAuthenticated() ? getUser() : null
+    return u ? u.onboardingComplete === false : false
+  })
 
   useEffect(() => {
     const handleOnline = () => setIsOffline(false)
     const handleOffline = () => setIsOffline(true)
+    const handleRotate = () => loadPlaylist()
     window.addEventListener('online', handleOnline)
     window.addEventListener('offline', handleOffline)
+    window.addEventListener('varus:rotate', handleRotate)
     return () => {
       window.removeEventListener('online', handleOnline)
       window.removeEventListener('offline', handleOffline)
+      window.removeEventListener('varus:rotate', handleRotate)
     }
   }, [])
 
   useEffect(() => {
-    loadPlaylist()
-  }, [])
+    if (user) loadPlaylist()
+  }, [user])
+
+  function restoreTrackIndex(tracks) {
+    const savedId = localStorage.getItem('varus:lastTrackId')
+    if (savedId) {
+      const idx = tracks.findIndex((t) => String(t.id) === savedId)
+      if (idx !== -1) return idx
+    }
+    return 0
+  }
 
   async function loadPlaylist() {
     setLoading(true)
@@ -33,19 +57,30 @@ export default function App() {
     try {
       const data = await fetchCurrentPlaylist()
       setPlaylist(data)
-      setCurrentIndex(0)
-      // Cache for offline use
-      if (data?.tracks) {
-        await cachePlaylist(data)
-      }
+      setCurrentIndex(data?.tracks ? restoreTrackIndex(data.tracks) : 0)
+      if (data?.tracks) await cachePlaylist(data)
     } catch (err) {
-      setError('Failed to load playlist. ' + (isOffline ? 'You are offline.' : (err?.message || 'Unknown error')))
+      // Offline fallback: try IndexedDB cache
+      const cached = await getCachedPlaylist()
+      if (cached) {
+        setPlaylist(cached)
+        setCurrentIndex(cached?.tracks ? restoreTrackIndex(cached.tracks) : 0)
+      } else {
+        setError('Failed to load playlist. ' + (isOffline ? 'You are offline.' : (err?.message || 'Unknown error')))
+      }
     } finally {
       setLoading(false)
     }
   }
 
   const currentTrack = playlist?.tracks?.[currentIndex] ?? null
+
+  // Persist the current track ID so it can be restored on reload
+  useEffect(() => {
+    if (currentTrack?.id != null) {
+      localStorage.setItem('varus:lastTrackId', String(currentTrack.id))
+    }
+  }, [currentTrack?.id])
 
   function handleNext() {
     if (!playlist) return
@@ -73,15 +108,63 @@ export default function App() {
     })
   }
 
+  async function handleSeedLibrary() {
+    setSeeding(true)
+    try {
+      await seedForUser([])
+      await refreshPlaylist()
+      await loadPlaylist()
+    } catch (err) {
+      setError('Failed to seed library: ' + (err?.message || 'Unknown error'))
+    } finally {
+      setSeeding(false)
+    }
+  }
+
+  function handleLogout() {
+    logout()
+    setUser(null)
+    setPlaylist(null)
+  }
+
+  // Show auth screen if not logged in
+  if (!user) {
+    return (
+      <AuthScreen
+        onAuth={(u) => {
+          setUser(u)
+          if (u.onboardingComplete === false) setShowOnboarding(true)
+        }}
+      />
+    )
+  }
+
   return (
     <div className="flex flex-col h-screen bg-spotify-black">
       {/* Header */}
-      <header className="flex items-center justify-between px-6 py-4 bg-spotify-darkgray border-b border-spotify-gray">
-        <h1 className="text-2xl font-bold text-white">🎵 Varus Music</h1>
-        {isOffline && (
-          <span className="text-xs bg-yellow-600 text-white px-2 py-1 rounded-full">Offline</span>
-        )}
-        <CadenceSelector />
+      <header className="flex items-center justify-between px-6 py-4 bg-spotify-darkgray border-b border-spotify-gray gap-4">
+        <h1 className="text-xl font-bold text-white shrink-0">🎵 Varus Music</h1>
+        <div className="flex items-center gap-3 flex-1 justify-end">
+          {isOffline && (
+            <span className="text-xs bg-yellow-600 text-white px-2 py-1 rounded-full shrink-0">Offline</span>
+          )}
+          <CadenceSelector />
+          <button
+            onClick={() => setShowDownload(true)}
+            className="text-spotify-lightgray hover:text-white p-1.5 rounded-md hover:bg-spotify-gray transition-colors shrink-0"
+            title="Download music"
+            aria-label="Download music"
+          >
+            <DownloadIcon />
+          </button>
+          <button
+            onClick={handleLogout}
+            className="text-xs text-spotify-lightgray hover:text-white shrink-0"
+            title={`Sign out (${user.username})`}
+          >
+            {user.username} ↩
+          </button>
+        </div>
       </header>
 
       {/* Main content */}
@@ -100,6 +183,8 @@ export default function App() {
               currentIndex={currentIndex}
               onSelect={handleSelectTrack}
               onRatingUpdate={handleRatingUpdate}
+              onSeedLibrary={handleSeedLibrary}
+              seeding={seeding}
             />
           )}
         </aside>
@@ -108,9 +193,17 @@ export default function App() {
         <main className="flex-1 flex flex-col items-center justify-center bg-gradient-to-b from-spotify-gray to-spotify-black p-8">
           {currentTrack ? (
             <div className="text-center mb-8">
-              {/* Album art placeholder */}
-              <div className="w-64 h-64 mx-auto bg-spotify-gray rounded-xl mb-6 flex items-center justify-center shadow-2xl">
-                <span className="text-6xl">🎵</span>
+              {/* Album art */}
+              <div className="w-64 h-64 mx-auto rounded-xl mb-6 shadow-2xl overflow-hidden bg-spotify-gray flex items-center justify-center">
+                {currentTrack.albumArtUrl ? (
+                  <img
+                    src={currentTrack.albumArtUrl}
+                    alt={`${currentTrack.album || currentTrack.title} cover`}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <span className="text-6xl">🎵</span>
+                )}
               </div>
               <h2 className="text-2xl font-bold text-white">{currentTrack.title}</h2>
               <p className="text-spotify-lightgray mt-1">{currentTrack.artist}</p>
@@ -119,9 +212,26 @@ export default function App() {
               )}
             </div>
           ) : (
-            <div className="text-spotify-lightgray text-center">
-              <p className="text-xl">No tracks in current playlist</p>
-              <p className="text-sm mt-2">Upload some music to get started</p>
+            <div className="text-center">
+              <span className="text-6xl mb-6 block">🎵</span>
+              <p className="text-xl text-white font-semibold">Your library is empty</p>
+              <p className="text-spotify-lightgray text-sm mt-2 mb-6">
+                Download music, or kick-start your library with popular tracks across a mix of genres.
+              </p>
+              <button
+                onClick={handleSeedLibrary}
+                disabled={seeding}
+                className="px-6 py-3 bg-spotify-green text-black font-bold rounded-full hover:bg-green-400 transition-colors disabled:opacity-50 flex items-center gap-2 mx-auto"
+              >
+                {seeding ? (
+                  <>
+                    <span className="animate-spin rounded-full h-4 w-4 border-t-2 border-black inline-block" />
+                    Queuing tracks…
+                  </>
+                ) : (
+                  'Seed with popular tracks'
+                )}
+              </button>
             </div>
           )}
         </main>
@@ -138,6 +248,33 @@ export default function App() {
           />
         </footer>
       )}
+
+      {/* Download panel modal */}
+      {showDownload && <DownloadPanel onClose={() => setShowDownload(false)} onDownloadComplete={loadPlaylist} />}
+
+      {/* Onboarding modal — shown once for new users */}
+      {showOnboarding && (
+        <OnboardingModal
+          onComplete={() => {
+            setShowOnboarding(false)
+            loadPlaylist()
+          }}
+        />
+      )}
+
+      {/* PWA install banner */}
+      <InstallBanner />
     </div>
   )
 }
+
+function DownloadIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <polyline points="7 10 12 15 17 10" />
+      <line x1="12" y1="15" x2="12" y2="3" />
+    </svg>
+  )
+}
+

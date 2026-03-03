@@ -1,10 +1,26 @@
 import RatingButtons from './RatingButtons.jsx'
 
-export default function TrackList({ tracks, currentIndex, onSelect, onRatingUpdate }) {
+export default function TrackList({ tracks, currentIndex, onSelect, onRatingUpdate, onSeedLibrary, seeding }) {
   if (!tracks.length) {
     return (
-      <div className="p-4 text-spotify-lightgray text-sm text-center mt-8">
-        No tracks in this cycle
+      <div className="p-6 text-center mt-6 flex flex-col gap-3">
+        <p className="text-spotify-lightgray text-sm">No tracks in this cycle</p>
+        {onSeedLibrary && (
+          <button
+            onClick={onSeedLibrary}
+            disabled={seeding}
+            className="w-full py-2 px-3 bg-spotify-green text-black text-xs font-bold rounded-full hover:bg-green-400 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+          >
+            {seeding ? (
+              <>
+                <span className="animate-spin rounded-full h-3 w-3 border-t-2 border-black inline-block" />
+                Queuing…
+              </>
+            ) : (
+              'Seed with popular tracks'
+            )}
+          </button>
+        )}
       </div>
     )
   }

@@ -1,13 +1,54 @@
 import { useEffect, useRef, useState } from 'react'
 import RatingButtons from './RatingButtons.jsx'
+import { completeTrack } from '../services/api.js'
 
 export default function Player({ track, onNext, onPrev, onRatingUpdate }) {
   const audioRef = useRef(null)
+  // Always holds the latest track so the ended handler sees the current id
+  const trackRef = useRef(track)
+  trackRef.current = track
   const [isPlaying, setIsPlaying] = useState(false)
   const isPlayingRef = useRef(false)
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
-  const [volume, setVolume] = useState(1)
+  const [volume, setVolume] = useState(() => {
+    const saved = parseFloat(localStorage.getItem('varus:volume'))
+    return isNaN(saved) ? 1 : saved
+  })
+
+  // Apply persisted volume on mount
+  useEffect(() => {
+    if (audioRef.current) audioRef.current.volume = volume
+  }, [])
+
+  // Media Session API — lock-screen / headset controls
+  useEffect(() => {
+    if (!('mediaSession' in navigator) || !track) return
+
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: track.title,
+      artist: track.artist,
+      album: track.album || '',
+      artwork: track.albumArtUrl
+        ? [{ src: track.albumArtUrl, sizes: '300x300', type: 'image/jpeg' }]
+        : [],
+    })
+
+    navigator.mediaSession.setActionHandler('play', () => {
+      audioRef.current?.play()
+    })
+    navigator.mediaSession.setActionHandler('pause', () => {
+      audioRef.current?.pause()
+    })
+    navigator.mediaSession.setActionHandler('previoustrack', onPrev)
+    navigator.mediaSession.setActionHandler('nexttrack', onNext)
+
+    return () => {
+      ;['play', 'pause', 'previoustrack', 'nexttrack'].forEach((a) => {
+        try { navigator.mediaSession.setActionHandler(a, null) } catch (_) {}
+      })
+    }
+  }, [track?.id, onNext, onPrev])
 
   // When track changes, reset and autoplay
   useEffect(() => {
@@ -27,7 +68,11 @@ export default function Player({ track, onNext, onPrev, onRatingUpdate }) {
 
     const handleTimeUpdate = () => setCurrentTime(audio.currentTime)
     const handleDurationChange = () => setDuration(audio.duration || 0)
-    const handleEnded = () => onNext()
+    const handleEnded = () => {
+      // Only fires on natural completion (audio ended without skip)
+      if (trackRef.current?.id) completeTrack(trackRef.current.id).catch(() => {})
+      onNext()
+    }
 
     audio.addEventListener('timeupdate', handleTimeUpdate)
     audio.addEventListener('durationchange', handleDurationChange)
@@ -39,6 +84,70 @@ export default function Player({ track, onNext, onPrev, onRatingUpdate }) {
       audio.removeEventListener('ended', handleEnded)
     }
   }, [onNext])
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    function handleKeyDown(e) {
+      // Hardware media keys — handle regardless of focused element
+      switch (e.key) {
+        case 'MediaPlayPause':
+          if (isPlayingRef.current) { audioRef.current?.pause() } else { audioRef.current?.play().catch(() => {}) }
+          return
+        case 'MediaTrackNext':
+          onNext()
+          return
+        case 'MediaTrackPrevious':
+          onPrev()
+          return
+        case 'MediaStop':
+          audioRef.current?.pause()
+          return
+        default:
+          break
+      }
+
+      // Don't intercept other keys from input elements
+      const tag = e.target.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+
+      switch (e.key) {
+        case ' ':
+          e.preventDefault()
+          if (isPlayingRef.current) { audioRef.current?.pause() } else { audioRef.current?.play().catch(() => {}) }
+          break
+        case 'ArrowLeft':
+          e.preventDefault()
+          if (audioRef.current) audioRef.current.currentTime = Math.max(0, audioRef.current.currentTime - 5)
+          break
+        case 'ArrowRight':
+          e.preventDefault()
+          if (audioRef.current) audioRef.current.currentTime = Math.min(audioRef.current.duration || 0, audioRef.current.currentTime + 5)
+          break
+        case 'ArrowUp':
+          e.preventDefault()
+          if (audioRef.current) applyVolume(audioRef.current.volume + 0.05)
+          break
+        case 'ArrowDown':
+          e.preventDefault()
+          if (audioRef.current) applyVolume(audioRef.current.volume - 0.05)
+          break
+        case 'n':
+        case 'N':
+          onNext()
+          break
+        case 'p':
+        case 'P':
+          onPrev()
+          break
+        default:
+          break
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onNext, onPrev])
 
   function togglePlay() {
     const audio = audioRef.current
@@ -60,10 +169,15 @@ export default function Player({ track, onNext, onPrev, onRatingUpdate }) {
     audio.currentTime = ratio * duration
   }
 
+  function applyVolume(v) {
+    const clamped = Math.min(1, Math.max(0, v))
+    setVolume(clamped)
+    if (audioRef.current) audioRef.current.volume = clamped
+    localStorage.setItem('varus:volume', clamped)
+  }
+
   function handleVolumeChange(e) {
-    const v = parseFloat(e.target.value)
-    setVolume(v)
-    if (audioRef.current) audioRef.current.volume = v
+    applyVolume(parseFloat(e.target.value))
   }
 
   const progress = duration ? (currentTime / duration) * 100 : 0
