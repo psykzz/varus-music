@@ -1,7 +1,10 @@
 import { useState, useEffect } from 'react'
 import { fetchCadence, updateCadence } from '../services/api.js'
 
-export default function CadenceSelector() {
+/**
+ * @param {{ onRotate: () => Promise<void>, isRotating: boolean }} props
+ */
+export default function CadenceSelector({ onRotate, isRotating }) {
   const [cadence, setCadence] = useState(null)
   const [saving, setSaving] = useState(false)
 
@@ -44,6 +47,34 @@ export default function CadenceSelector() {
           Next: {new Date(cadence.nextRun).toLocaleDateString()}
         </span>
       )}
+      <button
+        onClick={onRotate}
+        disabled={isRotating}
+        title={isRotating ? 'Rotating playlist…' : 'Rotate now — generates a fresh playlist and resets your cadence timer'}
+        aria-label="Rotate playlist now"
+        className="text-spotify-lightgray hover:text-white p-1 rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+      >
+        <RotateIcon spinning={isRotating} />
+      </button>
     </div>
+  )
+}
+
+function RotateIcon({ spinning }) {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={spinning ? 'animate-spin' : undefined}
+    >
+      <polyline points="1 4 1 10 7 10" />
+      <path d="M3.51 15a9 9 0 1 0 .49-3" />
+    </svg>
   )
 }

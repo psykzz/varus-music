@@ -10,6 +10,8 @@ export default function RatingButtons({ track, onRatingUpdate, size = 'md' }) {
 
   async function handleRate(value) {
     if (submitting) return
+    // Re-clicking the active vote keeps it (no-op)
+    if (value === lastRating) return
     setSubmitting(true)
     try {
       await rateTrack(track.id, value)

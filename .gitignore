@@ -13,14 +13,17 @@ backend/.env
 # Prisma generated client
 backend/node_modules/
 
-# SQLite database files
+# SQLite database files (no longer used — project uses PostgreSQL via Docker)
 *.db
 *.db-journal
 *.db-wal
 *.db-shm
 
-# Music storage (uploaded files)
-backend/storage/
+# Music storage (keep directory structure but not actual music files)
+backend/storage/**
+!backend/storage/**/.gitkeep
+storage/**
+!storage/**/.gitkeep
 
 # Logs
 *.log
