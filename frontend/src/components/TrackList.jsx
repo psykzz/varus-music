@@ -94,4 +94,3 @@ export default function TrackList({ tracks, currentIndex, onSelect, onRatingUpda
     </div>
   )
 }
-````
