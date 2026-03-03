@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Player from './components/Player.jsx'
 import TrackList from './components/TrackList.jsx'
 import CadenceSelector from './components/CadenceSelector.jsx'
@@ -39,6 +39,9 @@ export default function App() {
   // Mobile UI state
   const [mobileExpanded, setMobileExpanded] = useState(false)
   const [mobileView, setMobileView] = useState('nowplaying')
+  // User menu
+  const [showUserMenu, setShowUserMenu] = useState(false)
+  const menuRef = useRef(null)
 
   useEffect(() => {
     const handleOnline = () => setIsOffline(false)
@@ -50,6 +53,17 @@ export default function App() {
       window.removeEventListener('offline', handleOffline)
     }
   }, [])
+
+  useEffect(() => {
+    if (!showUserMenu) return
+    function handleClickOutside(e) {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        setShowUserMenu(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [showUserMenu])
 
   // Listen for caching progress messages from the service worker
   useEffect(() => {
@@ -251,35 +265,66 @@ export default function App() {
       {/* Header */}
       <header className="flex items-center justify-between px-3 md:px-6 py-3 md:py-4 bg-spotify-darkgray border-b border-spotify-gray gap-2 md:gap-4 pt-safe">
         <h1 className="text-xl font-bold text-white shrink-0">🎵 Varus Music</h1>
-        <div className="flex items-center gap-3 flex-1 justify-end">
+        <div className="flex items-center gap-3">
           {isOffline && (
             <span className="text-xs bg-yellow-600 text-white px-2 py-1 rounded-full shrink-0">Offline</span>
           )}
-          <CadenceSelector onRotate={handleRotate} isRotating={loading} />
-          <button
-            onClick={() => setShowDebug(true)}
-            className="hidden md:flex items-center text-spotify-lightgray hover:text-white p-1.5 rounded-md hover:bg-spotify-gray transition-colors shrink-0"
-            title="Playlist debug info"
-            aria-label="Playlist debug info"
-          >
-            <DebugIcon />
-          </button>
-          <button
-            onClick={() => setShowDownload(true)}
-            className="text-spotify-lightgray hover:text-white p-1.5 rounded-md hover:bg-spotify-gray transition-colors shrink-0"
-            title="Download music"
-            aria-label="Download music"
-          >
-            <DownloadIcon />
-          </button>
-          <button
-            onClick={handleLogout}
-            className="text-xs text-spotify-lightgray hover:text-white shrink-0 flex items-center gap-1"
-            title={`Sign out (${user.username})`}
-          >
-            <span className="hidden md:inline">{user.username}</span>
-            <span>↩</span>
-          </button>
+          {/* User menu */}
+          <div className="relative" ref={menuRef}>
+            <button
+              onClick={() => setShowUserMenu((v) => !v)}
+              className="w-8 h-8 rounded-full bg-spotify-green text-black text-sm font-bold flex items-center justify-center hover:bg-green-400 transition-colors"
+              title={user.username}
+              aria-label="Open user menu"
+            >
+              {user.username[0].toUpperCase()}
+            </button>
+            {showUserMenu && (
+              <div className="absolute right-0 top-full mt-2 w-72 bg-spotify-darkgray border border-spotify-gray rounded-lg shadow-xl z-50 overflow-hidden">
+                {/* User info */}
+                <div className="px-4 py-3 border-b border-spotify-gray">
+                  <p className="text-sm font-medium text-white">{user.username}</p>
+                </div>
+                {/* Cadence */}
+                <div className="px-4 py-3 border-b border-spotify-gray">
+                  <p className="text-xs text-spotify-lightgray uppercase tracking-wider mb-2">Cadence</p>
+                  <CadenceSelector onRotate={handleRotate} isRotating={loading} hideRotate />
+                </div>
+                {/* Actions */}
+                <div className="py-1">
+                  <button
+                    onClick={() => { handleRotate(); setShowUserMenu(false) }}
+                    disabled={loading}
+                    className="w-full text-left px-4 py-2.5 text-sm text-white hover:bg-spotify-gray transition-colors flex items-center gap-3 disabled:opacity-50"
+                  >
+                    <ForceCycleIcon spinning={loading} />
+                    Force Cycle
+                  </button>
+                  <button
+                    onClick={() => { setShowDownload(true); setShowUserMenu(false) }}
+                    className="w-full text-left px-4 py-2.5 text-sm text-white hover:bg-spotify-gray transition-colors flex items-center gap-3"
+                  >
+                    <DownloadIcon />
+                    Download Music
+                  </button>
+                  <button
+                    onClick={() => { setShowDebug(true); setShowUserMenu(false) }}
+                    className="w-full text-left px-4 py-2.5 text-sm text-white hover:bg-spotify-gray transition-colors flex items-center gap-3"
+                  >
+                    <DebugIcon />
+                    Debug Info
+                  </button>
+                  <button
+                    onClick={() => { handleLogout(); setShowUserMenu(false) }}
+                    className="w-full text-left px-4 py-2.5 text-sm text-red-400 hover:bg-spotify-gray transition-colors flex items-center gap-3"
+                  >
+                    <LogoutIcon />
+                    Sign Out
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
@@ -457,7 +502,7 @@ export default function App() {
 
 function DownloadIcon() {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
       <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
       <polyline points="7 10 12 15 17 10" />
       <line x1="12" y1="15" x2="12" y2="3" />
@@ -467,9 +512,38 @@ function DownloadIcon() {
 
 function DebugIcon() {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
       <path d="M12 20h9" />
       <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+    </svg>
+  )
+}
+
+function ForceCycleIcon({ spinning }) {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={`shrink-0 ${spinning ? 'animate-spin' : ''}`}
+    >
+      <polyline points="1 4 1 10 7 10" />
+      <path d="M3.51 15a9 9 0 1 0 .49-3" />
+    </svg>
+  )
+}
+
+function LogoutIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+      <polyline points="16 17 21 12 16 7" />
+      <line x1="21" y1="12" x2="9" y2="12" />
     </svg>
   )
 }

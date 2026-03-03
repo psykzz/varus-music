@@ -4,7 +4,7 @@ import { fetchCadence, updateCadence } from '../services/api.js'
 /**
  * @param {{ onRotate: () => Promise<void>, isRotating: boolean }} props
  */
-export default function CadenceSelector({ onRotate, isRotating }) {
+export default function CadenceSelector({ onRotate, isRotating, hideRotate = false }) {
   const [cadence, setCadence] = useState(null)
   const [saving, setSaving] = useState(false)
 
@@ -47,15 +47,17 @@ export default function CadenceSelector({ onRotate, isRotating }) {
           Next: {new Date(cadence.nextRun).toLocaleDateString()}
         </span>
       )}
-      <button
-        onClick={onRotate}
-        disabled={isRotating}
-        title={isRotating ? 'Rotating playlist…' : 'Rotate now — generates a fresh playlist and resets your cadence timer'}
-        aria-label="Rotate playlist now"
-        className="text-spotify-lightgray hover:text-white p-1 rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-      >
-        <RotateIcon spinning={isRotating} />
-      </button>
+      {!hideRotate && (
+        <button
+          onClick={onRotate}
+          disabled={isRotating}
+          title={isRotating ? 'Rotating playlist…' : 'Rotate now — generates a fresh playlist and resets your cadence timer'}
+          aria-label="Rotate playlist now"
+          className="text-spotify-lightgray hover:text-white p-1 rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          <RotateIcon spinning={isRotating} />
+        </button>
+      )}
     </div>
   )
 }
