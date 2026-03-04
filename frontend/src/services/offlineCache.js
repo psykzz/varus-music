@@ -43,12 +43,14 @@ export async function cachePlaylist(playlist) {
     // Use serviceWorker.ready so the message is never lost on first install
     // (when .controller may still be null).
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.ready.then((reg) => {
-        reg.active?.postMessage({
-          type: 'CACHE_PLAYLIST',
-          urls: (playlist.tracks ?? []).map((t) => `/files/${t.filename}`),
+      const urls = (playlist.tracks ?? []).map((t) => `/files/${t.filename}`)
+      // Skip the SW round-trip entirely when every track is already in cache.
+      const status = await getAudioCacheStatus(urls)
+      if (status.cached < status.total) {
+        navigator.serviceWorker.ready.then((reg) => {
+          reg.active?.postMessage({ type: 'CACHE_PLAYLIST', urls })
         })
-      })
+      }
     }
   } catch (err) {
     console.warn('Failed to cache playlist:', err)
