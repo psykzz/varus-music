@@ -1,85 +1,99 @@
-import { useState, useEffect } from 'react'
-import { fetchGenres, seedForUser, refreshPlaylist } from '../services/api.js'
-import { patchUser } from '../services/auth.js'
+import { useState, useEffect } from "react";
+import { fetchGenres, seedForUser, refreshPlaylist } from "../services/api.js";
+import { patchUser } from "../services/auth.js";
 
 const GENRE_ICONS = {
-  pop: '🎤',
-  rock: '🎸',
-  'hip-hop': '🎧',
-  electronic: '🎛️',
-  classical: '🎻',
-  indie: '🌿',
-  jazz: '🎷',
-  'r&b': '🎹',
-}
+  pop: "🎤",
+  rock: "🎸",
+  "hip-hop": "🎧",
+  electronic: "🎛️",
+  classical: "🎻",
+  indie: "🌿",
+  jazz: "🎷",
+  "r&b": "🎹",
+};
 
 export default function OnboardingModal({ onComplete }) {
-  const [genres, setGenres] = useState([])
-  const [selected, setSelected] = useState(new Set())
-  const [status, setStatus] = useState('idle') // idle | loading | seeding | done
+  const [genres, setGenres] = useState([]);
+  const [selected, setSelected] = useState(new Set());
+  const [status, setStatus] = useState("idle"); // idle | loading | seeding | done
 
   useEffect(() => {
     fetchGenres()
       .then((data) => setGenres(data.genres ?? []))
       .catch(() => {
         // Fallback list if network fails before auth
-        setGenres(['pop', 'rock', 'hip-hop', 'electronic', 'classical', 'indie', 'jazz', 'r&b'])
-      })
-  }, [])
+        setGenres([
+          "pop",
+          "rock",
+          "hip-hop",
+          "electronic",
+          "classical",
+          "indie",
+          "jazz",
+          "r&b",
+        ]);
+      });
+  }, []);
 
   function toggleGenre(genre) {
     setSelected((prev) => {
-      const next = new Set(prev)
-      next.has(genre) ? next.delete(genre) : next.add(genre)
-      return next
-    })
+      const next = new Set(prev);
+      next.has(genre) ? next.delete(genre) : next.add(genre);
+      return next;
+    });
   }
 
   async function handleStart(chosenGenres) {
-    setStatus('seeding')
+    setStatus("seeding");
     try {
-      await seedForUser(chosenGenres)
+      await seedForUser(chosenGenres);
       // Persist onboarding completion to localStorage immediately so a
       // page reload does not re-trigger the modal.
-      patchUser({ onboardingComplete: true })
+      patchUser({ onboardingComplete: true });
       // Mark that a playlist build is in progress so reloads show the
       // building screen instead of the genre picker.
-      localStorage.setItem('varus_building', 'true')
-      await refreshPlaylist()
+      localStorage.setItem("varus_building", "true");
+      await refreshPlaylist();
     } catch (err) {
-      console.error('[Onboarding] Seeding failed:', err)
+      console.error("[Onboarding] Seeding failed:", err);
       // Even on failure, mark complete so the modal doesn't loop.
-      patchUser({ onboardingComplete: true })
-      localStorage.setItem('varus_building', 'true')
+      patchUser({ onboardingComplete: true });
+      localStorage.setItem("varus_building", "true");
     }
-    setStatus('done')
-    onComplete()
+    setStatus("done");
+    onComplete();
   }
 
-  if (status === 'seeding') {
+  if (status === "seeding") {
     return (
       <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div className="bg-spotify-darkgray rounded-2xl p-10 max-w-sm w-full text-center shadow-2xl">
+        <div className="sonic-surface rounded-2xl p-10 max-w-sm w-full text-center shadow-2xl">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-spotify-green mx-auto mb-6" />
-          <h2 className="text-white text-xl font-bold mb-2">Building your library…</h2>
+          <h2 className="text-white text-xl font-heading font-bold mb-2 tracking-tight">
+            Building your library…
+          </h2>
           <p className="text-spotify-lightgray text-sm">
-            We're queuing popular tracks for you. Music will appear as downloads complete.
+            We're queuing popular tracks for you. Music will appear as downloads
+            complete.
           </p>
         </div>
       </div>
-    )
+    );
   }
 
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-spotify-darkgray rounded-2xl p-8 max-w-lg w-full shadow-2xl">
+      <div className="sonic-surface rounded-2xl p-8 max-w-lg w-full shadow-2xl">
         {/* Header */}
         <div className="text-center mb-8">
           <span className="text-5xl block mb-4">🎵</span>
-          <h2 className="text-white text-2xl font-bold">Welcome to Varus Music</h2>
+          <h2 className="text-white text-2xl font-heading font-bold tracking-tight">
+            Welcome to Varus Music
+          </h2>
           <p className="text-spotify-lightgray mt-2 text-sm">
-            Pick a few genres you enjoy and we'll seed your library with popular tracks.
-            Rate them to personalise your rotation over time.
+            Pick a few genres you enjoy and we'll seed your library with popular
+            tracks. Rate them to personalise your rotation over time.
           </p>
         </div>
 
@@ -87,23 +101,23 @@ export default function OnboardingModal({ onComplete }) {
         {genres.length > 0 ? (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
             {genres.map((genre) => {
-              const isSelected = selected.has(genre)
+              const isSelected = selected.has(genre);
               return (
                 <button
                   key={genre}
                   onClick={() => toggleGenre(genre)}
                   className={[
-                    'flex flex-col items-center justify-center gap-1 py-4 rounded-xl border-2 transition-all text-sm font-medium capitalize',
+                    "flex flex-col items-center justify-center gap-1 py-4 rounded-xl border-2 transition-all text-sm font-medium capitalize",
                     isSelected
-                      ? 'border-spotify-green bg-spotify-green/10 text-spotify-green'
-                      : 'border-spotify-gray text-spotify-lightgray hover:border-white hover:text-white',
-                  ].join(' ')}
+                      ? "border-spotify-green bg-cyan-400/10 text-spotify-green"
+                      : "border-spotify-gray text-spotify-lightgray hover:border-spotify-lightgray hover:text-white",
+                  ].join(" ")}
                   aria-pressed={isSelected}
                 >
-                  <span className="text-2xl">{GENRE_ICONS[genre] ?? '🎵'}</span>
+                  <span className="text-2xl">{GENRE_ICONS[genre] ?? "🎵"}</span>
                   {genre}
                 </button>
-              )
+              );
             })}
           </div>
         ) : (
@@ -116,10 +130,12 @@ export default function OnboardingModal({ onComplete }) {
         <div className="flex flex-col gap-3">
           <button
             onClick={() => handleStart([...selected])}
-            disabled={status !== 'idle'}
-            className="w-full py-3 bg-spotify-green text-black font-bold rounded-full hover:bg-green-400 transition-colors disabled:opacity-50"
+            disabled={status !== "idle"}
+            className="w-full py-3 sonic-primary font-bold rounded-pill hover:brightness-110 transition disabled:opacity-50"
           >
-            {selected.size === 0 ? 'Start Discovering' : `Start with ${selected.size} genre${selected.size > 1 ? 's' : ''}`}
+            {selected.size === 0
+              ? "Start Discovering"
+              : `Start with ${selected.size} genre${selected.size > 1 ? "s" : ""}`}
           </button>
           <button
             onClick={() => handleStart([])}
@@ -130,5 +146,5 @@ export default function OnboardingModal({ onComplete }) {
         </div>
       </div>
     </div>
-  )
+  );
 }
