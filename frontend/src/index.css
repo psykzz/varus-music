@@ -2,9 +2,25 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --sonic-bg: #0e0e13;
+  --sonic-surface: #19191f;
+  --sonic-raised: #1f1f26;
+  --sonic-panel: #25252c;
+  --sonic-cyan: #a1faff;
+  --sonic-cyan-strong: #00f4fe;
+  --sonic-text: #f8f5fd;
+  --sonic-muted: #acaab1;
+  --sonic-outline: #48474d;
+}
+
 body {
-  @apply bg-spotify-black text-white;
-  font-family: 'Circular', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  @apply bg-spotify-black text-white font-body;
+  background:
+    radial-gradient(circle at 15% -20%, rgba(161, 250, 255, 0.14), transparent 45%),
+    radial-gradient(circle at 95% 5%, rgba(112, 0, 255, 0.12), transparent 35%),
+    linear-gradient(160deg, #0c0c10 0%, #0e0e13 45%, #121218 100%);
+  color: var(--sonic-text);
 }
 
 /* Custom scrollbar */
@@ -16,6 +32,24 @@ body {
 }
 ::-webkit-scrollbar-thumb {
   @apply bg-spotify-lightgray rounded-full;
+}
+
+@layer components {
+  .sonic-surface {
+    background-color: rgba(25, 25, 31, 0.92);
+    border: 1px solid rgba(72, 71, 77, 0.7);
+  }
+
+  .sonic-glass {
+    background-color: rgba(37, 37, 44, 0.62);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(72, 71, 77, 0.6);
+  }
+
+  .sonic-primary {
+    background-image: linear-gradient(135deg, var(--sonic-cyan), var(--sonic-cyan-strong));
+    color: #062021;
+  }
 }
 
 /* Safe-area inset helpers for notched / Dynamic-Island devices */
@@ -31,5 +65,9 @@ body {
 @layer utilities {
   .pb-player-safe {
     padding-bottom: calc(132px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .text-sonic-muted {
+    color: var(--sonic-muted);
   }
 }

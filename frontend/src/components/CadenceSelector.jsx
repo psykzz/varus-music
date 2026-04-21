@@ -1,33 +1,35 @@
-import { useState, useEffect } from 'react'
-import { fetchCadence, updateCadence } from '../services/api.js'
+import { useState, useEffect } from "react";
+import { fetchCadence, updateCadence } from "../services/api.js";
 
 /**
  * @param {{ onRotate: () => Promise<void>, isRotating: boolean }} props
  */
-export default function CadenceSelector({ onRotate, isRotating, hideRotate = false }) {
-  const [cadence, setCadence] = useState(null)
-  const [saving, setSaving] = useState(false)
+export default function CadenceSelector({
+  onRotate,
+  isRotating,
+  hideRotate = false,
+}) {
+  const [cadence, setCadence] = useState(null);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    fetchCadence()
-      .then(setCadence)
-      .catch(console.error)
-  }, [])
+    fetchCadence().then(setCadence).catch(console.error);
+  }, []);
 
   async function handleChange(e) {
-    const interval = e.target.value
-    setSaving(true)
+    const interval = e.target.value;
+    setSaving(true);
     try {
-      const updated = await updateCadence(interval)
-      setCadence(updated)
+      const updated = await updateCadence(interval);
+      setCadence(updated);
     } catch (err) {
-      console.error('Failed to update cadence:', err)
+      console.error("Failed to update cadence:", err);
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
   }
 
-  if (!cadence) return null
+  if (!cadence) return null;
 
   return (
     <div className="flex items-center gap-2 text-sm">
@@ -36,7 +38,7 @@ export default function CadenceSelector({ onRotate, isRotating, hideRotate = fal
         value={cadence.interval}
         onChange={handleChange}
         disabled={saving}
-        className="bg-spotify-gray text-white border border-spotify-lightgray rounded px-2 py-1 text-sm focus:outline-none focus:border-spotify-green"
+        className="bg-spotify-gray/90 text-white border border-spotify-gray rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:border-spotify-green"
       >
         <option value="daily">Daily</option>
         <option value="weekly">Weekly</option>
@@ -51,15 +53,19 @@ export default function CadenceSelector({ onRotate, isRotating, hideRotate = fal
         <button
           onClick={onRotate}
           disabled={isRotating}
-          title={isRotating ? 'Rotating playlist…' : 'Rotate now — generates a fresh playlist and resets your cadence timer'}
+          title={
+            isRotating
+              ? "Rotating playlist…"
+              : "Rotate now — generates a fresh playlist and resets your cadence timer"
+          }
           aria-label="Rotate playlist now"
-          className="text-spotify-lightgray hover:text-white p-1 rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          className="text-spotify-lightgray hover:text-spotify-green p-1.5 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <RotateIcon spinning={isRotating} />
         </button>
       )}
     </div>
-  )
+  );
 }
 
 function RotateIcon({ spinning }) {
@@ -73,10 +79,10 @@ function RotateIcon({ spinning }) {
       strokeWidth="2.5"
       strokeLinecap="round"
       strokeLinejoin="round"
-      className={spinning ? 'animate-spin' : undefined}
+      className={spinning ? "animate-spin" : undefined}
     >
       <polyline points="1 4 1 10 7 10" />
       <path d="M3.51 15a9 9 0 1 0 .49-3" />
     </svg>
-  )
+  );
 }

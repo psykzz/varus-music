@@ -1,15 +1,26 @@
-import RatingButtons from './RatingButtons.jsx'
+import RatingButtons from "./RatingButtons.jsx";
 
-export default function TrackList({ tracks, currentIndex, onSelect, onRatingUpdate, onSeedLibrary, seeding, newTrackIds = new Set(), cacheProgress = null }) {
+export default function TrackList({
+  tracks,
+  currentIndex,
+  onSelect,
+  onRatingUpdate,
+  onSeedLibrary,
+  seeding,
+  newTrackIds = new Set(),
+  cacheProgress = null,
+}) {
   if (!tracks.length) {
     return (
       <div className="p-6 text-center mt-6 flex flex-col gap-3">
-        <p className="text-spotify-lightgray text-sm">No tracks in this cycle</p>
+        <p className="text-spotify-lightgray text-sm">
+          No tracks in this cycle
+        </p>
         {onSeedLibrary && (
           <button
             onClick={onSeedLibrary}
             disabled={seeding}
-            className="w-full py-2 px-3 bg-spotify-green text-black text-xs font-bold rounded-full hover:bg-green-400 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+            className="w-full py-2 px-3 sonic-primary text-xs font-bold rounded-pill hover:brightness-110 transition disabled:opacity-50 flex items-center justify-center gap-2"
           >
             {seeding ? (
               <>
@@ -17,19 +28,19 @@ export default function TrackList({ tracks, currentIndex, onSelect, onRatingUpda
                 Queuing…
               </>
             ) : (
-              'Seed with popular tracks'
+              "Seed with popular tracks"
             )}
           </button>
         )}
       </div>
-    )
+    );
   }
 
   return (
     <div className="py-2">
       <div className="px-4 pt-2 pb-1">
         <div className="flex items-center justify-between gap-3">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-spotify-lightgray shrink-0">
+          <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-spotify-lightgray shrink-0">
             Current Cycle
           </h2>
           {cacheProgress && (
@@ -39,20 +50,30 @@ export default function TrackList({ tracks, currentIndex, onSelect, onRatingUpda
               ) : (
                 <span className="text-spotify-green shrink-0">✓</span>
               )}
-              <span className={cacheProgress.done ? 'text-spotify-green' : 'text-spotify-lightgray'}>
+              <span
+                className={
+                  cacheProgress.done
+                    ? "text-spotify-green"
+                    : "text-spotify-lightgray"
+                }
+              >
                 {cacheProgress.cached} / {cacheProgress.total} downloaded
               </span>
               {cacheProgress.failed > 0 && (
-                <span className="text-orange-400">· {cacheProgress.failed} failed</span>
+                <span className="text-orange-400">
+                  · {cacheProgress.failed} failed
+                </span>
               )}
             </div>
           )}
         </div>
         {cacheProgress && !cacheProgress.done && cacheProgress.total > 0 && (
-          <div className="mt-1.5 h-0.5 bg-spotify-gray rounded-full overflow-hidden">
+          <div className="mt-1.5 h-0.5 bg-spotify-gray/80 rounded-full overflow-hidden">
             <div
               className="h-full bg-spotify-green rounded-full transition-all duration-300"
-              style={{ width: `${Math.round((cacheProgress.cached / cacheProgress.total) * 100)}%` }}
+              style={{
+                width: `${Math.round((cacheProgress.cached / cacheProgress.total) * 100)}%`,
+              }}
             />
           </div>
         )}
@@ -61,14 +82,19 @@ export default function TrackList({ tracks, currentIndex, onSelect, onRatingUpda
         <div
           key={track.id}
           onClick={() => onSelect(index)}
-          className={`flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-spotify-gray transition-colors ${
-            index === currentIndex ? 'bg-spotify-gray' : ''
+          className={`flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-spotify-gray/70 transition-colors ${
+            index === currentIndex ? "bg-spotify-gray/85" : ""
           }`}
         >
           {/* Track number / playing indicator */}
           <div className="w-5 text-center text-xs text-spotify-lightgray flex-shrink-0">
             {index === currentIndex ? (
-              <span className="text-spotify-green">▶</span>
+              <span
+                className="text-cyan-300"
+                style={{ filter: "drop-shadow(0 0 4px rgba(0,244,254,0.7))" }}
+              >
+                ▶
+              </span>
             ) : (
               <span>{index + 1}</span>
             )}
@@ -79,18 +105,20 @@ export default function TrackList({ tracks, currentIndex, onSelect, onRatingUpda
             <div className="flex items-center gap-1.5 min-w-0">
               <p
                 className={`text-sm font-medium truncate ${
-                  index === currentIndex ? 'text-spotify-green' : 'text-white'
+                  index === currentIndex ? "text-cyan-200" : "text-white"
                 }`}
               >
                 {track.title}
               </p>
               {newTrackIds.has(String(track.id)) && (
-                <span className="flex-shrink-0 bg-spotify-green text-black text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase leading-none">
+                <span className="flex-shrink-0 bg-cyan-400/15 text-cyan-300 border border-cyan-400/35 text-[9px] font-bold px-1.5 py-0.5 rounded-pill uppercase leading-none">
                   new
                 </span>
               )}
             </div>
-            <p className="text-xs text-spotify-lightgray truncate">{track.artist}</p>
+            <p className="text-xs text-spotify-lightgray truncate">
+              {track.artist}
+            </p>
           </div>
 
           {/* Score badge */}
@@ -98,26 +126,27 @@ export default function TrackList({ tracks, currentIndex, onSelect, onRatingUpda
             <span
               className={`text-xs px-1.5 py-0.5 rounded-full flex-shrink-0 ${
                 track.score > 0
-                  ? 'bg-green-900 text-green-300'
+                  ? "bg-cyan-950 text-cyan-200"
                   : track.score < 0
-                  ? 'bg-red-900 text-red-300'
-                  : 'bg-spotify-gray text-spotify-lightgray'
+                    ? "bg-red-900 text-red-300"
+                    : "bg-spotify-gray/80 text-spotify-lightgray"
               }`}
             >
-              {track.score > 0 ? '+' : ''}
+              {track.score > 0 ? "+" : ""}
               {track.score}
             </span>
           )}
 
           {/* Rating buttons */}
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="flex-shrink-0"
-          >
-            <RatingButtons track={track} onRatingUpdate={onRatingUpdate} size="sm" />
+          <div onClick={(e) => e.stopPropagation()} className="flex-shrink-0">
+            <RatingButtons
+              track={track}
+              onRatingUpdate={onRatingUpdate}
+              size="sm"
+            />
           </div>
         </div>
       ))}
     </div>
-  )
+  );
 }
