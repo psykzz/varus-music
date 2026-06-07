@@ -34,13 +34,10 @@ varus-music/
 **1. Create a `.env` file in the project root:**
 
 ```env
-# PostgreSQL
-POSTGRES_PASSWORD=change_me
-
 # Auth
 JWT_SECRET=change_me_to_a_long_random_string
 
-# Last.fm — required for scrobbling / metadata enrichment
+# Last.fm — required for metadata enrichment and track seeding
 # Get a free API key at https://www.last.fm/api/account/create
 LASTFM_API_KEY=your_lastfm_api_key_here
 

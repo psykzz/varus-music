@@ -16,9 +16,10 @@ export async function onboardingRoutes(fastify) {
       select: { onboardingComplete: true },
     })
     if (!user) return reply.code(404).send({ error: 'User not found' })
-    if (user.onboardingComplete) return { queued: 0, alreadyComplete: true, genres: [] }
+    if (user.onboardingComplete) return { queued: 0, alreadyComplete: true, genres: [], cadence: 'weekly' }
 
-    const { genres } = request.body ?? {}
+    const { genres, cadence: rawCadence } = request.body ?? {}
+    const cadence = ['daily', 'weekly', 'monthly'].includes(rawCadence) ? rawCadence : 'weekly'
     const selectedGenres = Array.isArray(genres) && genres.length > 0
       ? genres.filter((g) => SEED_GENRES.includes(g))
       : SEED_GENRES
@@ -32,6 +33,12 @@ export async function onboardingRoutes(fastify) {
       data: { onboardingComplete: true },
     })
 
-    return { queued, genres: selectedGenres }
+    await prisma.cadenceSetting.upsert({
+      where: { userId },
+      create: { userId, interval: cadence },
+      update: { interval: cadence },
+    })
+
+    return { queued, genres: selectedGenres, cadence }
   })
 }

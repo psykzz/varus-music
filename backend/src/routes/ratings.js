@@ -14,10 +14,13 @@ export async function ratingsRoutes(fastify) {
     const track = await prisma.track.findUnique({ where: { id: trackId } })
     if (!track) return reply.code(404).send({ error: 'Track not found' })
 
+    // Delete any implicit rating before saving an explicit one
+    await prisma.rating.deleteMany({ where: { userId, trackId, implicit: true } })
+
     const rating = await prisma.rating.upsert({
       where: { userId_trackId: { userId, trackId } },
-      create: { userId, trackId, value },
-      update: { value },
+      create: { userId, trackId, value, implicit: false },
+      update: { value, implicit: false },
     })
     return reply.code(201).send(rating)
   })
