@@ -167,9 +167,27 @@ export default function DownloadPanel({ onClose, onDownloadComplete }) {
           {/* Download queue */}
           {queue.length > 0 && (
             <div className="flex flex-col gap-2">
-              <p className="text-xs text-spotify-lightgray uppercase tracking-wider">
-                Queue
-              </p>
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs text-spotify-lightgray uppercase tracking-wider">
+                  Queue
+                </p>
+                {(() => {
+                  const done = queue.filter((j) => j.status === "done").length;
+                  const active = queue.filter((j) =>
+                    ["pending", "downloading"].includes(j.status)
+                  ).length;
+                  return active > 0 ? (
+                    <span className="text-xs text-spotify-lightgray">
+                      <span className="animate-spin rounded-full h-2 w-2 border-t-2 border-spotify-green inline-block mr-1.5 align-middle" />
+                      {done} / {queue.length} done
+                    </span>
+                  ) : done === queue.length ? (
+                    <span className="text-xs text-spotify-green">
+                      ✓ {done} done
+                    </span>
+                  ) : null;
+                })()}
+              </div>
               {queue.map((job) => (
                 <div
                   key={job.id}
