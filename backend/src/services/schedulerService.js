@@ -2,11 +2,18 @@ import cron from 'node-cron'
 import prisma from '../db.js'
 import { generatePlaylist } from './playlistService.js'
 import { enqueueDownload, searchAudio } from './downloadService.js'
-import { fetchTopTracks, fetchSimilarTracks, fetchArtistTopTracks } from './lastfmService.js'
+import { fetchTopTracks, fetchSimilarTracks, fetchArtistTopTracks, fetchSimilarArtists } from './lastfmService.js'
+import { getTopTracksForGenre } from './seedingService.js'
 import { purgeUnusedFiles } from './cleanupService.js'
 
-// Maximum new Last.fm tracks to seed per rotation (they download in the background)
-const MAX_SEED_TRACKS = 20
+// Target total library size. Manual downloads may exceed this cap intentionally.
+const LIBRARY_SOFT_CAP = 250
+// Maximum new tracks to seed per scheduled rotation
+const MAX_SEED_TRACKS_SCHEDULED = 20
+// Maximum new tracks to seed when the user manually forces a cycle
+const MAX_SEED_TRACKS_FORCED = 50
+// Maximum tracks sourced from a single artist to maintain variety
+const MAX_TRACKS_PER_ARTIST = 8
 
 /**
  * Returns the next run date based on the interval.

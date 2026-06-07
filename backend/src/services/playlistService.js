@@ -1,34 +1,36 @@
 import prisma from '../db.js'
 
 const DEFAULT_PLAYLIST_SIZE = 100
-// Number of meaningful ratings before switching from discovery mode to personalised mode
-const DISCOVERY_THRESHOLD = 5
-// In discovery mode: how many slots go to globally popular vs random unrated (50/50)
-const DISCOVERY_POPULAR_SLOTS = Math.floor(DEFAULT_PLAYLIST_SIZE * 0.5)
-const DISCOVERY_RANDOM_SLOTS = DEFAULT_PLAYLIST_SIZE - DISCOVERY_POPULAR_SLOTS
-// In personalised mode: cap on how many highly-rated (score > 0) tracks fill the cycle
-const MAX_RATED_RATIO = 0.5
+// Maximum fraction of a cycle that liked tracks can occupy.
+// When there are more liked tracks than this cap, the least-played ones are
+// prioritised so every liked song gets airtime over successive cycles.
+// The remaining slots are filled with neutral/unrated tracks to surface new music.
+const LIKED_CAP_RATIO = 0.70
 
 /**
  * Generate a new playlist cycle for a specific user.
  *
- * New users (< DISCOVERY_THRESHOLD ratings) get a discovery playlist:
- *   - DISCOVERY_POPULAR_SLOTS tracks with the highest aggregate score across all users
- *   - DISCOVERY_RANDOM_SLOTS randomly selected unrated tracks
- *
- * Users with enough ratings get the personalised algorithm:
- *   - Up to 50% from highly-rated (score > 0) tracks, shuffled from a 2× candidate pool
- *   - The rest filled with randomly shuffled unrated / neutral tracks
- *   If the user has fewer liked tracks than the cap, all of them are included and
- *   the remaining slots are filled with random tracks.
+ * Algorithm:
+ *  - Liked tracks (net score > 0, explicit or implicit): always protected from
+ *    purge, and always given first-class treatment in the cycle.  When liked
+ *    tracks exceed LIKED_CAP_RATIO × cycle size, the least-played ones are
+ *    prioritised so favourites rotate through and every liked song gets heard.
+ *  - Neutral / unrated tracks: fill the remaining slots (at least 30%) so new
+ *    music is always promoted and has a chance to become liked.
+ *  - Disliked tracks (score ≤ -3 for implicitly bad, any explicit dislike):
+ *    excluded entirely.
  *
  * @param {string} userId
  * @param {{ preserveTrackIds?: string[] }} [opts]
  */
 export async function generatePlaylist(userId, { preserveTrackIds = [] } = {}) {
-  // Fetch all tracks with this user's ratings
+  // Fetch all non-purged tracks with this user's ratings and play stats
   const tracks = await prisma.track.findMany({
-    include: { ratings: true },
+    where: { filePurged: false },
+    include: {
+      ratings: { where: { userId } },
+      trackStats: { where: { userId } },
+    },
   })
 
   if (tracks.length === 0) {
@@ -40,91 +42,52 @@ export async function generatePlaylist(userId, { preserveTrackIds = [] } = {}) {
     })
   }
 
-  // Normalise preserve list to strings for reliable comparison
   const preserveSet = new Set(preserveTrackIds.map(String))
 
-  // Split ratings into user's own and global aggregate
-  const withUserRatings = tracks.map((t) => {
-    const userRatings = t.ratings.filter((r) => r.userId === userId)
-    const globalScore = t.ratings.reduce((sum, r) => sum + r.value, 0)
-    const userScore = userRatings.reduce((sum, r) => sum + r.value, 0)
-    return {
-      id: t.id,
-      globalScore,
-      userScore,
-      userRatingCount: userRatings.length,
-    }
+  const enriched = tracks.map((t) => {
+    const userScore = t.ratings.reduce((sum, r) => sum + r.value, 0)
+    const userPlayCount = t.trackStats[0]?.playCount ?? 0
+    return { id: t.id, userScore, userPlayCount }
   })
 
-  const userTotalRatings = withUserRatings.reduce((sum, t) => sum + t.userRatingCount, 0)
+  // Bucket 1: Liked — any net-positive score (explicit or implicit)
+  const liked = enriched
+    .filter((t) => t.userScore > 0)
+    // Least-played first so every liked song gets airtime over successive cycles
+    .sort((a, b) => a.userPlayCount - b.userPlayCount)
 
-  let selected
+  // Bucket 2: Excluded — explicit dislike or heavily implicitly skipped
+  const excludedIds = new Set(
+    enriched.filter((t) => t.userScore <= -3 || t.userScore === -1).map((t) => t.id)
+  )
 
-  if (userTotalRatings < DISCOVERY_THRESHOLD) {
-    // ── Discovery mode ────────────────────────────────────────────────────────
-    // Popular tracks: globally highest aggregate score, exclude actively disliked by user
-    const popular = withUserRatings
-      .filter((t) => t.userScore > -1)
-      .sort((a, b) => b.globalScore - a.globalScore)
-      .slice(0, DISCOVERY_POPULAR_SLOTS)
+  // Bucket 3: Neutral / unrated — everything else, randomly shuffled
+  const neutral = enriched.filter((t) => t.userScore === 0 && !excludedIds.has(t.id))
+  shuffle(neutral)
 
-    const popularIds = new Set(popular.map((t) => t.id))
+  // ── Fill the cycle ─────────────────────────────────────────────────────────
+  // Liked tracks fill up to LIKED_CAP_RATIO of the cycle.  If there are fewer
+  // liked tracks than that cap, all of them are included and neutral fills the rest.
+  const maxLikedSlots = Math.floor(DEFAULT_PLAYLIST_SIZE * LIKED_CAP_RATIO)
+  const likedSlice = liked.slice(0, maxLikedSlots)
+  const neutralSlots = DEFAULT_PLAYLIST_SIZE - likedSlice.length
+  const neutralSlice = neutral.slice(0, neutralSlots)
 
-    // Random unrated tracks: user has never rated them
-    const unrated = withUserRatings.filter((t) => t.userRatingCount === 0 && !popularIds.has(t.id))
-    // Fisher-Yates shuffle
-    for (let i = unrated.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [unrated[i], unrated[j]] = [unrated[j], unrated[i]]
-    }
-    const randomUnrated = unrated.slice(0, DISCOVERY_RANDOM_SLOTS)
+  let selected = [...likedSlice, ...neutralSlice]
 
-    selected = [...popular, ...randomUnrated]
-  } else {
-    // ── Personalised mode ─────────────────────────────────────────────────────
-    const scored = withUserRatings.map((t) => ({
-      id: t.id,
-      score: t.userScore,
-      ratingCount: t.userRatingCount,
-    }))
-
-    // "Highly rated" = net-positive score. These fill up to 50% of the cycle.
-    const likedPool = scored.filter((t) => t.score > 0)
-    // Random pool: unrated or rated but not heavily disliked (score between -3 and 0 inclusive)
-    const randomPool = scored.filter((t) => t.score <= 0 && t.score > -3)
-
-    // Determine actual liked slots — capped at MAX_RATED_RATIO of the target size
-    const maxLikedSlots = Math.floor(DEFAULT_PLAYLIST_SIZE * MAX_RATED_RATIO)
-    const likedSlotCount = Math.min(likedPool.length, maxLikedSlots)
-
-    // Sort liked tracks by score descending, take a 2× candidate window, then shuffle
-    // so each rotation surfaces a varied subset of the user's favourites.
-    likedPool.sort((a, b) => b.score - a.score)
-    const likedCandidates = likedPool.slice(0, likedSlotCount * 2)
-    for (let i = likedCandidates.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [likedCandidates[i], likedCandidates[j]] = [likedCandidates[j], likedCandidates[i]]
-    }
-    const likedSelected = likedCandidates.slice(0, likedSlotCount)
-
-    // Fill remaining slots with randomly shuffled pool tracks
-    const randomSlotCount = DEFAULT_PLAYLIST_SIZE - likedSelected.length
-    for (let i = randomPool.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [randomPool[i], randomPool[j]] = [randomPool[j], randomPool[i]]
-    }
-    const randomSelected = randomPool.slice(0, randomSlotCount)
-
-    selected = [...likedSelected, ...randomSelected]
-  }
-
-  // Ensure preserved tracks are included (e.g. currently playing track).
-  // Prepend them at position 0 and trim the tail to stay within the size limit.
+  // Ensure preserved tracks (e.g. currently playing) are present
   if (preserveSet.size > 0) {
-    const preservedEntries = selected.filter((t) => preserveSet.has(String(t.id)))
+    const preserved = selected.filter((t) => preserveSet.has(String(t.id)))
     const rest = selected.filter((t) => !preserveSet.has(String(t.id)))
-    selected = [...preservedEntries, ...rest].slice(0, DEFAULT_PLAYLIST_SIZE)
+    selected = [...preserved, ...rest]
   }
+
+  // Shuffle liked + neutral together so the queue isn't split into two
+  // obvious halves, but keep preserved tracks at the front
+  const preservedFront = selected.filter((t) => preserveSet.has(String(t.id)))
+  const rest = selected.filter((t) => !preserveSet.has(String(t.id)))
+  shuffle(rest)
+  selected = [...preservedFront, ...rest]
 
   // Get this user's cadence to determine expiry
   const cadence = await prisma.cadenceSetting.findUnique({ where: { userId } })
@@ -141,6 +104,13 @@ export async function generatePlaylist(userId, { preserveTrackIds = [] } = {}) {
   })
 
   return cycle
+}
+
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]]
+  }
 }
 
 function getExpiryDate(interval) {
