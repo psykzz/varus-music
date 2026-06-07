@@ -3,7 +3,6 @@ import Fastify from 'fastify'
 import cors from '@fastify/cors'
 import multipart from '@fastify/multipart'
 import staticFiles from '@fastify/static'
-import rateLimit from '@fastify/rate-limit'
 import jwt from '@fastify/jwt'
 import path from 'path'
 import fs from 'fs/promises'
@@ -33,7 +32,6 @@ await fs.mkdir(process.env.WATCH_FOLDER || path.join(__dirname, '..', 'storage',
 
 await fastify.register(cors, { origin: true })
 await fastify.register(multipart, { limits: { fileSize: 100 * 1024 * 1024 } })
-await fastify.register(rateLimit, { max: 100, timeWindow: '1 minute' })
 await fastify.register(staticFiles, {
   root: MUSIC_STORAGE_PATH,
   prefix: '/files/',
