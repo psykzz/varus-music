@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import RatingButtons from "./RatingButtons.jsx";
-import { completeTrack } from "../services/api.js";
+import { completeTrack, skipTrack } from "../services/api.js";
 
 export default function Player({
   track,
@@ -22,6 +22,8 @@ export default function Player({
   // Always holds the latest loop flag so the ended handler sees the current value
   const loopRef = useRef(loop);
   loopRef.current = loop;
+  const playFiredRef = useRef(false);
+  const trackStartWallRef = useRef(Date.now());
   const [isPlaying, setIsPlaying] = useState(false);
   const isPlayingRef = useRef(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -55,8 +57,14 @@ export default function Player({
     navigator.mediaSession.setActionHandler("pause", () => {
       audioRef.current?.pause();
     });
-    navigator.mediaSession.setActionHandler("previoustrack", onPrev);
-    navigator.mediaSession.setActionHandler("nexttrack", onNext);
+    navigator.mediaSession.setActionHandler("previoustrack", () => {
+      checkAndFireSkip();
+      onPrev();
+    });
+    navigator.mediaSession.setActionHandler("nexttrack", () => {
+      checkAndFireSkip();
+      onNext();
+    });
 
     return () => {
       ["play", "pause", "previoustrack", "nexttrack"].forEach((a) => {
@@ -69,6 +77,8 @@ export default function Player({
 
   // When track changes, reset and autoplay
   useEffect(() => {
+    playFiredRef.current = false;
+    trackStartWallRef.current = Date.now();
     if (audioRef.current) {
       audioRef.current.load();
       setCurrentTime(0);
@@ -87,14 +97,19 @@ export default function Player({
     const audio = audioRef.current;
     if (!audio) return;
 
-    const handleTimeUpdate = () => setCurrentTime(audio.currentTime);
+    const handleTimeUpdate = () => {
+      const t = audio.currentTime;
+      const d = audio.duration;
+      setCurrentTime(t);
+      // Fire play at 80% — only once per track
+      if (!playFiredRef.current && d > 0 && t / d >= 0.8) {
+        playFiredRef.current = true;
+        if (trackRef.current?.id) completeTrack(trackRef.current.id).catch(() => {});
+      }
+    };
     const handleDurationChange = () => setDuration(audio.duration || 0);
     const handleEnded = () => {
-      // Only fires on natural completion (audio ended without skip)
-      if (trackRef.current?.id)
-        completeTrack(trackRef.current.id).catch(() => {});
       if (loopRef.current) {
-        // Restart the current track
         audio.currentTime = 0;
         audio.play().catch(() => {});
       } else {
@@ -126,9 +141,11 @@ export default function Player({
           }
           return;
         case "MediaTrackNext":
+          checkAndFireSkip();
           onNext();
           return;
         case "MediaTrackPrevious":
+          checkAndFireSkip();
           onPrev();
           return;
         case "MediaStop":
@@ -177,10 +194,12 @@ export default function Player({
           break;
         case "n":
         case "N":
+          checkAndFireSkip();
           onNext();
           break;
         case "p":
         case "P":
+          checkAndFireSkip();
           onPrev();
           break;
         case "l":
@@ -236,6 +255,22 @@ export default function Player({
     setVolume(clamped);
     if (audioRef.current) audioRef.current.volume = clamped;
     localStorage.setItem("varus:volume", clamped);
+  }
+
+  function checkAndFireSkip() {
+    const audio = audioRef.current;
+    const currentTrack = trackRef.current;
+    if (!audio || !currentTrack?.id) return;
+    const elapsed = Date.now() - trackStartWallRef.current;
+    const d = audio.duration;
+    if (
+      elapsed >= 5000 &&
+      d > 0 &&
+      audio.currentTime / d < 0.2 &&
+      !playFiredRef.current
+    ) {
+      skipTrack(currentTrack.id).catch(() => {});
+    }
   }
 
   function handleVolumeChange(e) {
@@ -308,7 +343,10 @@ export default function Player({
               <ShuffleIcon />
             </button>
             <button
-              onClick={onPrev}
+              onClick={() => {
+                checkAndFireSkip();
+                onPrev();
+              }}
               className="text-spotify-lightgray hover:text-white transition-colors"
               aria-label="Previous"
             >
@@ -323,7 +361,10 @@ export default function Player({
               {isPlaying ? <PauseIcon /> : <PlayIcon />}
             </button>
             <button
-              onClick={onNext}
+              onClick={() => {
+                checkAndFireSkip();
+                onNext();
+              }}
               className="text-spotify-lightgray hover:text-white transition-colors"
               aria-label="Next"
             >
@@ -420,6 +461,7 @@ export default function Player({
           <button
             onClick={(e) => {
               e.stopPropagation();
+              checkAndFireSkip();
               onNext();
             }}
             className="w-10 h-10 flex items-center justify-center flex-shrink-0 text-spotify-lightgray hover:text-white touch-manipulation"
@@ -538,7 +580,10 @@ export default function Player({
                 <ShuffleIcon />
               </button>
               <button
-                onClick={onPrev}
+                onClick={() => {
+                  checkAndFireSkip();
+                  onPrev();
+                }}
                 className="p-3 touch-manipulation text-spotify-lightgray hover:text-white transition-colors rounded-xl hover:bg-white/6"
                 aria-label="Previous"
               >
@@ -552,7 +597,10 @@ export default function Player({
                 {isPlaying ? <PauseIconLg /> : <PlayIconLg />}
               </button>
               <button
-                onClick={onNext}
+                onClick={() => {
+                  checkAndFireSkip();
+                  onNext();
+                }}
                 className="p-3 touch-manipulation text-spotify-lightgray hover:text-white transition-colors rounded-xl hover:bg-white/6"
                 aria-label="Next"
               >

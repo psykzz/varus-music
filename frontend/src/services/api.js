@@ -75,6 +75,15 @@ export async function completeTrack(trackId) {
   )
 }
 
+export async function skipTrack(trackId) {
+  return handleResponse(
+    await fetch(`${API_BASE}/tracks/${trackId}/skip`, {
+      method: 'POST',
+      headers: authHeaders(),
+    })
+  )
+}
+
 export async function fetchCadence() {
   return handleResponse(await fetch(`${API_BASE}/cadence`, { headers: authHeaders() }))
 }
@@ -125,12 +134,12 @@ export async function fetchGenres() {
   return handleResponse(await fetch(`${API_BASE}/onboarding/genres`))
 }
 
-export async function seedForUser(genres = []) {
+export async function seedForUser(genres = [], cadence = 'weekly') {
   return handleResponse(
     await fetch(`${API_BASE}/onboarding/seed`, {
       method: 'POST',
       headers: authHeaders({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify({ genres }),
+      body: JSON.stringify({ genres, cadence }),
     })
   )
 }
