@@ -1,9 +1,14 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { rateTrack } from "../services/api.js";
 
 export default function RatingButtons({ track, onRatingUpdate, size = "md" }) {
   const [submitting, setSubmitting] = useState(false);
   const [lastRating, setLastRating] = useState(null);
+
+  // Reset the displayed rating whenever the track changes
+  useEffect(() => {
+    setLastRating(null);
+  }, [track?.id]);
 
   // Minimum 44 × 44 px touch targets (iOS / Material guidelines)
   const iconClass = size === "sm" ? "w-4 h-4" : "w-5 h-5";
