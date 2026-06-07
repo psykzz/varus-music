@@ -1,21 +1,5 @@
 services:
 
-  # ── PostgreSQL database ──────────────────────────────────────────────────────
-  postgres:
-    image: postgres:16-alpine
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: varus_music
-      POSTGRES_USER: varus
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-varus_music_secret}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U varus -d varus_music"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-
   # ── Backend (Fastify API) ────────────────────────────────────────────────────
   backend:
     image: ${BACKEND_IMAGE:-ghcr.io/psykzz/varus-music-backend:latest}
@@ -23,20 +7,18 @@ services:
     ports:
       - "${BACKEND_PORT:-3001}:3001"
     environment:
-      DATABASE_URL: postgresql://varus:${POSTGRES_PASSWORD:-varus_music_secret}@postgres:5432/varus_music
+      DATABASE_URL: file:/data/db/varus.db
       JWT_SECRET: ${JWT_SECRET:-varus-music-dev-secret-change-in-production}
       PORT: 3001
       LASTFM_API_KEY: ${LASTFM_API_KEY:-your_lastfm_api_key_here}
       MUSIC_STORAGE_PATH: /data/music
       WATCH_FOLDER: /data/watch
     volumes:
+      - db_data:/data/db
       # Map storage folders to host paths so files are managed outside the container.
       # Override MUSIC_PATH / WATCH_PATH in .env to point at your own directories.
       - ${MUSIC_PATH:-./storage/music}:/data/music
       - ${WATCH_PATH:-./storage/watch}:/data/watch
-    depends_on:
-      postgres:
-        condition: service_healthy
 
   # ── Frontend (React / nginx) ─────────────────────────────────────────────────
   frontend:
@@ -48,4 +30,4 @@ services:
       - backend
 
 volumes:
-  postgres_data:
+  db_data:

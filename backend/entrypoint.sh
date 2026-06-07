@@ -1,8 +1,8 @@
 #!/bin/sh
 set -e
 
-echo "Initialising database (if needed)..."
-psql "$DATABASE_URL" -f /app/prisma/init.sql
+echo "Applying database schema..."
+npx prisma db push --skip-generate
 
 echo "Generating Prisma client..."
 npx prisma generate
