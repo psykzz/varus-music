@@ -171,22 +171,7 @@ export default function DownloadPanel({ onClose, onDownloadComplete }) {
                 <p className="text-xs text-spotify-lightgray uppercase tracking-wider">
                   Queue
                 </p>
-                {(() => {
-                  const done = queue.filter((j) => j.status === "done").length;
-                  const active = queue.filter((j) =>
-                    ["pending", "downloading"].includes(j.status)
-                  ).length;
-                  return active > 0 ? (
-                    <span className="text-xs text-spotify-lightgray">
-                      <span className="animate-spin rounded-full h-2 w-2 border-t-2 border-spotify-green inline-block mr-1.5 align-middle" />
-                      {done} / {queue.length} done
-                    </span>
-                  ) : done === queue.length ? (
-                    <span className="text-xs text-spotify-green">
-                      ✓ {done} done
-                    </span>
-                  ) : null;
-                })()}
+                <QueueProgress queue={queue} />
               </div>
               {queue.map((job) => (
                 <div
@@ -229,4 +214,24 @@ export default function DownloadPanel({ onClose, onDownloadComplete }) {
       </div>
     </div>
   );
+}
+
+function QueueProgress({ queue }) {
+  const done = queue.filter((j) => j.status === "done").length;
+  const active = queue.filter((j) =>
+    ["pending", "downloading"].includes(j.status)
+  ).length;
+
+  if (active > 0) {
+    return (
+      <span className="text-xs text-spotify-lightgray">
+        <span className="animate-spin rounded-full h-2 w-2 border-t-2 border-spotify-green inline-block mr-1.5 align-middle" />
+        {done} / {queue.length} done
+      </span>
+    );
+  }
+  if (done === queue.length && done > 0) {
+    return <span className="text-xs text-spotify-green">✓ {done} done</span>;
+  }
+  return null;
 }
