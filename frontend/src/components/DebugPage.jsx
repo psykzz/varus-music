@@ -21,7 +21,7 @@ export default function DebugPage({ onClose }) {
   }, []);
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-[radial-gradient(circle_at_20%_0%,rgba(161,250,255,0.1),transparent_50%),#0e0e13]">
+    <div className="fixed inset-0 z-50 flex flex-col bg-[radial-gradient(circle_at_20%_0%,rgba(161,250,255,0.1),transparent_50%),linear-gradient(180deg,#0e0e13,#0e0e13)]">
       {/* Header */}
       <div className="flex items-center justify-between px-6 py-4 sonic-glass shrink-0">
         <div>

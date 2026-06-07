@@ -156,6 +156,44 @@ export async function fetchSimilarTracks(title, artist, limit = 20) {
 }
 
 /**
+ * Fetch artists similar to a given artist from Last.fm.
+ * Returns an array of { name } objects.
+ *
+ * @param {string} artist
+ * @param {number} [limit=10]
+ */
+export async function fetchSimilarArtists(artist, limit = 10) {
+  if (!API_KEY) {
+    console.warn('[LastFM] LASTFM_API_KEY not set — skipping fetchSimilarArtists')
+    return []
+  }
+
+  try {
+    const params = new URLSearchParams({
+      method: 'artist.getSimilar',
+      api_key: API_KEY,
+      artist,
+      autocorrect: '1',
+      limit: String(limit),
+      format: 'json',
+    })
+
+    const res = await throttledFetch(`${LASTFM_BASE}?${params}`)
+    if (!res.ok) {
+      console.warn(`[LastFM] HTTP ${res.status} for artist.getSimilar`)
+      return []
+    }
+
+    const data = await res.json()
+    const artists = data?.similarartists?.artist ?? []
+    return artists.map((a) => ({ name: typeof a === 'string' ? a : a.name }))
+  } catch (err) {
+    console.warn('[LastFM] fetchSimilarArtists failed:', err.message)
+    return []
+  }
+}
+
+/**
  * Fetch an artist's top tracks from Last.fm.
  * Returns an array of { title, artist } objects.
  *

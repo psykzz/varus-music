@@ -5,6 +5,7 @@ import prisma from '../db.js'
 import { enrichTrack } from '../services/lastfmService.js'
 import { ingestFile } from '../services/watcherService.js'
 import { enqueueDownload } from '../services/downloadService.js'
+import { evaluateImplicitRating } from '../services/implicitRatingService.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const MUSIC_STORAGE_PATH = process.env.MUSIC_STORAGE_PATH || path.join(__dirname, '..', '..', 'storage', 'music')
@@ -35,7 +36,6 @@ export async function tracksRoutes(fastify) {
   // Upload a track (requires auth)
   fastify.post('/upload', {
     preHandler: [fastify.authenticate],
-    config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
   }, async (request, reply) => {
     const { default: fs } = await import('fs')
     const { promises: fsPromises } = await import('fs')
@@ -64,15 +64,42 @@ export async function tracksRoutes(fastify) {
     return reply.code(201).send(track)
   })
 
-  // Record a full play-through (no skip) — increments global playCount on the track
+  // Record a play-through — increments per-user playCount and evaluates implicit rating
   fastify.post('/:id/complete', { preHandler: [fastify.authenticate] }, async (request, reply) => {
-    const track = await prisma.track.findUnique({ where: { id: request.params.id } })
+    const trackId = request.params.id
+    const userId = request.user.sub
+
+    const track = await prisma.track.findUnique({ where: { id: trackId } })
     if (!track) return reply.code(404).send({ error: 'Track not found' })
-    const updated = await prisma.track.update({
-      where: { id: track.id },
-      data: { playCount: { increment: 1 } },
+
+    const stats = await prisma.userTrackStats.upsert({
+      where: { userId_trackId: { userId, trackId } },
+      create: { userId, trackId, playCount: 1 },
+      update: { playCount: { increment: 1 } },
     })
-    return { id: updated.id, playCount: updated.playCount }
+
+    await evaluateImplicitRating(userId, trackId)
+
+    return { id: trackId, playCount: stats.playCount }
+  })
+
+  // Record a skip — increments per-user skipCount and evaluates implicit rating
+  fastify.post('/:id/skip', { preHandler: [fastify.authenticate] }, async (request, reply) => {
+    const trackId = request.params.id
+    const userId = request.user.sub
+
+    const track = await prisma.track.findUnique({ where: { id: trackId } })
+    if (!track) return reply.code(404).send({ error: 'Track not found' })
+
+    const stats = await prisma.userTrackStats.upsert({
+      where: { userId_trackId: { userId, trackId } },
+      create: { userId, trackId, skipCount: 1 },
+      update: { skipCount: { increment: 1 } },
+    })
+
+    await evaluateImplicitRating(userId, trackId)
+
+    return { id: trackId, net: stats.playCount - stats.skipCount }
   })
 
   // Manually re-enrich a track from Last.fm (requires auth)
@@ -107,7 +134,6 @@ export async function tracksRoutes(fastify) {
   // Delete a track (requires auth)
   fastify.delete('/:id', {
     preHandler: [fastify.authenticate],
-    config: { rateLimit: { max: 30, timeWindow: '1 minute' } },
   }, async (request, reply) => {
     const { promises: fsPromises } = await import('fs')
     const track = await prisma.track.findUnique({ where: { id: request.params.id } })

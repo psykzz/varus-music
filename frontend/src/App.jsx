@@ -314,7 +314,7 @@ export default function App() {
     <div className="flex flex-col h-screen bg-spotify-black text-white">
       {/* Header */}
       <header
-        className="flex items-center justify-between px-3 md:px-6 py-3 md:py-4 sonic-glass gap-2 md:gap-4"
+        className="relative z-10 flex items-center justify-between px-3 md:px-6 py-3 md:py-4 sonic-glass gap-2 md:gap-4"
         style={{ paddingTop: "calc(0.75rem + env(safe-area-inset-top, 0px))" }}
       >
         <h1 className="text-xl font-heading font-bold text-white shrink-0 tracking-tight">
