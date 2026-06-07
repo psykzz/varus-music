@@ -31,13 +31,22 @@ export async function purgeUnusedFiles() {
   })
   const activeTrackIds = new Set(activeCycleTracks.map((t) => t.trackId))
 
+  // Protect tracks that any user has liked (explicit or implicit positive rating).
+  // These must never lose their audio file even if they fall outside the current cycle.
+  const likedRatings = await prisma.rating.findMany({
+    where: { value: { gt: 0 } },
+    select: { trackId: true },
+  })
+  const likedTrackIds = new Set(likedRatings.map((r) => r.trackId))
+
   // Find tracks whose files are present on disk but not in any active playlist
+  // and not liked by any user
   const tracks = await prisma.track.findMany({
     where: { filePurged: false },
     select: { id: true, filename: true },
   })
 
-  const toDelete = tracks.filter((t) => !activeTrackIds.has(t.id))
+  const toDelete = tracks.filter((t) => !activeTrackIds.has(t.id) && !likedTrackIds.has(t.id))
 
   let purged = 0
   const deletedIds = []

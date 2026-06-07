@@ -13,6 +13,33 @@ const STATUS_COLORS = {
   error: "bg-red-700 text-red-100",
 };
 
+const formatDuration = (s) => {
+  if (!s) return "";
+  const m = Math.floor(s / 60);
+  const sec = s % 60;
+  return `${m}:${sec.toString().padStart(2, "0")}`;
+};
+
+const QueueProgress = ({ queue }) => {
+  const done = queue.filter((j) => j.status === "done").length;
+  const active = queue.filter((j) =>
+    ["pending", "downloading"].includes(j.status)
+  ).length;
+
+  if (active > 0) {
+    return (
+      <span className="text-xs text-spotify-lightgray">
+        <span className="animate-spin rounded-full h-2 w-2 border-t-2 border-spotify-green inline-block mr-1.5 align-middle" />
+        {done} / {queue.length} done
+      </span>
+    );
+  }
+  if (done === queue.length && done > 0) {
+    return <span className="text-xs text-spotify-green">✓ {done} done</span>;
+  }
+  return null;
+};
+
 export default function DownloadPanel({ onClose, onDownloadComplete }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
@@ -74,13 +101,6 @@ export default function DownloadPanel({ onClose, onDownloadComplete }) {
       await deleteDownloadJob(jobId);
       setQueue((prev) => prev.filter((j) => j.id !== jobId));
     } catch (_) {}
-  }
-
-  function formatDuration(s) {
-    if (!s) return "";
-    const m = Math.floor(s / 60);
-    const sec = s % 60;
-    return `${m}:${sec.toString().padStart(2, "0")}`;
   }
 
   return (
@@ -167,9 +187,12 @@ export default function DownloadPanel({ onClose, onDownloadComplete }) {
           {/* Download queue */}
           {queue.length > 0 && (
             <div className="flex flex-col gap-2">
-              <p className="text-xs text-spotify-lightgray uppercase tracking-wider">
-                Queue
-              </p>
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs text-spotify-lightgray uppercase tracking-wider">
+                  Queue
+                </p>
+                <QueueProgress queue={queue} />
+              </div>
               {queue.map((job) => (
                 <div
                   key={job.id}
